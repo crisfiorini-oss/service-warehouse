@@ -81,7 +81,7 @@ func (b *Backend) InsertRows(ctx context.Context, ref backend.TableRef, schema [
 	if err != nil {
 		return nil, err
 	}
-	stream, err := arrowipc.NewReader(schema, batches)
+	stream, err := arrowipc.NewReader(schema, batches, arrowipc.WithMaxMessageBytes(b.cfg.MaxArrowMessageBytes))
 	if err != nil {
 		return nil, streamError(err)
 	}

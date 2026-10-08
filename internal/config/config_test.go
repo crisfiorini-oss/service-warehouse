@@ -46,7 +46,7 @@ func clearEnv(t *testing.T) {
 	for _, k := range []string{
 		"SWH_LISTEN", "SWH_BACKEND", "SWH_DATABASE", "SWH_DATASET", "SWH_LOCATION",
 		"SWH_DSN", "SWH_HOST", "SWH_PORT", "SWH_USER", "SWH_PASSWORD", "SWH_ACCOUNT",
-		"SWH_CREDENTIALS_FILE", "SWH_MAX_QUERY_BYTES", "SWH_QUERY_TIMEOUT",
+		"SWH_CREDENTIALS_FILE", "SWH_MAX_QUERY_BYTES", "SWH_QUERY_TIMEOUT", "SWH_MAX_ARROW_MESSAGE_BYTES",
 		"SWH_AUTH_TOKEN", "SWH_ALLOW_ANONYMOUS",
 	} {
 		t.Setenv(k, "")
@@ -128,6 +128,11 @@ func TestMalformedLimitsAreRejected(t *testing.T) {
 		{"SWH_QUERY_TIMEOUT", "5 minutes", "not a duration"},
 		{"SWH_QUERY_TIMEOUT", "-30s", "must not be negative"},
 		{"SWH_PORT", "abc", "not an integer"},
+		{"SWH_MAX_ARROW_MESSAGE_BYTES", "64MiB", "not an integer"},
+		{"SWH_MAX_ARROW_MESSAGE_BYTES", "-1", "must be positive"},
+		// Zero is refused rather than read as "the default": a zero that reached
+		// the Arrow reader would be no bound at all.
+		{"SWH_MAX_ARROW_MESSAGE_BYTES", "0", "must be positive"},
 	} {
 		t.Run(tc.key+"="+tc.value, func(t *testing.T) {
 			clearEnv(t)
@@ -154,6 +159,16 @@ func TestDefaultsAndParsing(t *testing.T) {
 	require.Equal(t, int64(4096), cfg.Backend.MaxQueryBytes)
 	require.Equal(t, 90*time.Second, cfg.Backend.QueryTimeout)
 	require.Equal(t, 5439, cfg.Backend.Port)
+	require.Equal(t, int64(64<<20), cfg.Backend.MaxArrowMessageBytes, "the Arrow message bound is on by default")
+}
+
+func TestArrowMessageBoundIsConfigurable(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("SWH_MAX_ARROW_MESSAGE_BYTES", "1048576")
+
+	cfg, err := FromEnv()
+	require.NoError(t, err)
+	require.Equal(t, int64(1<<20), cfg.Backend.MaxArrowMessageBytes)
 }
 
 // Unset limits keep meaning "use the backend default"; rejecting malformed

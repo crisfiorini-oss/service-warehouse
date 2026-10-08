@@ -410,6 +410,25 @@ func (r *failingReader) Next() ([]byte, error) {
 }
 func (r *failingReader) Close() error { return nil }
 
+// SWH_MAX_ARROW_MESSAGE_BYTES reaches the reader: a message whose body is over it
+// is the client's invalid argument, and nothing of the call is sent to BigQuery.
+func TestInsertRowsRefusesAMessageOverTheConfiguredBound(t *testing.T) {
+	f := newFake(t)
+	f.handle("GET /projects/test-project/datasets/d/tables/t", 200, eventTable)
+	f.handle("POST "+insertPath, 200, map[string]any{})
+	header, batch := eventBatch(t, []int64{1, 2, 3}, []string{"a", "b", "c"})
+
+	small := f.open(t, backend.Config{MaxArrowMessageBytes: 16})
+	_, err := insertRows(t, small, header, batch)
+	require.True(t, serr.Is(err, serr.InvalidArgument), "got %v", err)
+	require.Empty(t, f.seen("POST", "insertAll"))
+
+	roomy := f.open(t, backend.Config{MaxArrowMessageBytes: 1 << 20})
+	res, err := insertRows(t, roomy, header, batch)
+	require.NoError(t, err)
+	require.EqualValues(t, 3, res.RowsInserted)
+}
+
 func TestInsertRowsIsUnsupportedForAnArrowTypeBigQueryHasNoEquivalentOf(t *testing.T) {
 	f := newFake(t)
 	f.handle("GET /projects/test-project/datasets/d/tables/t", 200, eventTable)

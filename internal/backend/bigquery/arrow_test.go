@@ -1,8 +1,6 @@
 package bigquery
 
 import (
-	"bytes"
-	"io"
 	"math"
 	"math/big"
 	"testing"
@@ -13,10 +11,10 @@ import (
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/decimal128"
-	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/stretchr/testify/require"
 
+	"github.com/codefly-dev/service-warehouse/internal/arrowipc"
 	"github.com/codefly-dev/service-warehouse/internal/serr"
 )
 
@@ -87,7 +85,7 @@ func everyType() (bq.Schema, [][]bq.Value, [][]any) {
 
 func readBack(t *testing.T, schemaMsg []byte, batch []byte) arrow.RecordBatch {
 	t.Helper()
-	reader, err := ipc.NewReader(io.MultiReader(bytes.NewReader(schemaMsg), bytes.NewReader(batch)))
+	reader, err := arrowipc.NewReader(schemaMsg, &sliceReader{payloads: [][]byte{batch}})
 	require.NoError(t, err)
 	t.Cleanup(reader.Release)
 	require.True(t, reader.Next(), "the batch holds a record: %v", reader.Err())

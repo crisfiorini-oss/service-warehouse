@@ -45,6 +45,10 @@ type Config struct {
 	MaxQueryBytes int64
 	// QueryTimeout bounds a single query; 0 means the backend default.
 	QueryTimeout time.Duration
+	// MaxArrowMessageBytes bounds the body of one Arrow IPC message a client
+	// sends (InsertRows); a larger one is refused as invalid before any of it is
+	// read. 0 means the default of internal/arrowipc, never no bound.
+	MaxArrowMessageBytes int64
 }
 
 // ColumnType is the portable logical type — the honest intersection across the

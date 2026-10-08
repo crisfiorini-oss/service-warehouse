@@ -1,7 +1,6 @@
 package bigquery
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -12,9 +11,9 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
-	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/stretchr/testify/require"
 
+	"github.com/codefly-dev/service-warehouse/internal/arrowipc"
 	"github.com/codefly-dev/service-warehouse/internal/backend"
 	"github.com/codefly-dev/service-warehouse/internal/serr"
 )
@@ -85,7 +84,7 @@ func decode(t *testing.T, res *backend.QueryResult) (schema *arrow.Schema, recor
 			break
 		}
 		require.NoError(t, err)
-		reader, err := ipc.NewReader(io.MultiReader(bytes.NewReader(res.ArrowSchema), bytes.NewReader(batch)))
+		reader, err := arrowipc.NewReader(res.ArrowSchema, &sliceReader{payloads: [][]byte{batch}})
 		require.NoError(t, err)
 		schema = reader.Schema()
 		for reader.Next() {

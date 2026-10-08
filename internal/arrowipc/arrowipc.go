@@ -165,6 +165,33 @@ type Reader struct {
 	err error
 }
 
+const (
+	// DefaultMaxMessageBytes is the largest message body a reader accepts when
+	// the caller names no limit: what SWH_MAX_ARROW_MESSAGE_BYTES defaults to.
+	DefaultMaxMessageBytes int64 = 64 << 20
+
+	// maxMetadataBytes is the largest message metadata a reader accepts. The
+	// metadata is a schema or a batch's buffer layout, a few bytes per column; a
+	// megabyte is thousands of columns.
+	maxMetadataBytes int64 = 1 << 20
+)
+
+// Option configures a Reader.
+type Option func(*readerConfig)
+
+type readerConfig struct{ maxMessageBytes int64 }
+
+// WithMaxMessageBytes bounds the body of one message. A message over the bound is
+// refused as ErrMalformed before any of it is allocated; a value that is not
+// positive leaves the default, never "no bound".
+func WithMaxMessageBytes(n int64) Option {
+	return func(c *readerConfig) {
+		if n > 0 {
+			c.maxMessageBytes = n
+		}
+	}
+}
+
 // NewReader reads the records of a stream whose schema message is schema and
 // whose record-batch messages come from src. schema may be empty when src's
 // first message is self-describing (a schema message followed by batches). A
@@ -172,14 +199,27 @@ type Reader struct {
 // schema it is: left on, the marker would end the stream before the first batch
 // and every row would be silently dropped.
 //
+// The bytes come from a client, so the sizes a message states are not taken on
+// trust. arrow-go's ipc.NewReader does not apply the size limits that its message
+// reader has, so every reader is built here, from a message reader that does, and
+// nowhere else (a test holds the repository to that).
+//
 // It reads the schema before it returns, so a first message that is not one is
 // reported here.
-func NewReader(schema []byte, src Source) (*Reader, error) {
+func NewReader(schema []byte, src Source, opts ...Option) (*Reader, error) {
+	cfg := readerConfig{maxMessageBytes: DefaultMaxMessageBytes}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 	w := &watchedSource{src: src}
-	r, err := ipc.NewReader(
+	mem := memory.DefaultAllocator
+	messages := ipc.NewMessageReader(
 		&messageStream{pending: bytes.TrimSuffix(schema, endOfStream[:]), src: w},
-		ipc.WithAllocator(memory.DefaultAllocator),
+		ipc.WithAllocator(mem),
+		ipc.WithMetadataSizeLimit(maxMetadataBytes),
+		ipc.WithBodySizeLimit(cfg.maxMessageBytes),
 	)
+	r, err := ipc.NewReaderFromMessageReader(messages, ipc.WithAllocator(mem))
 	if err != nil {
 		return nil, w.classify(err)
 	}
