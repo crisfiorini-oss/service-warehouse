@@ -29,6 +29,9 @@ const (
 	Throttled
 	// InvalidArgument means the request (or SQL) was malformed.
 	InvalidArgument
+	// DeadlineExceeded means the operation did not finish within its time
+	// limit: the caller's or the server's configured one.
+	DeadlineExceeded
 )
 
 func (c Code) String() string {
@@ -47,6 +50,8 @@ func (c Code) String() string {
 		return "Throttled"
 	case InvalidArgument:
 		return "InvalidArgument"
+	case DeadlineExceeded:
+		return "DeadlineExceeded"
 	default:
 		return "Internal"
 	}

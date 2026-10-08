@@ -28,6 +28,8 @@ func toStatus(err error) error {
 		c = codes.ResourceExhausted
 	case serr.InvalidArgument:
 		c = codes.InvalidArgument
+	case serr.DeadlineExceeded:
+		c = codes.DeadlineExceeded
 	default:
 		c = codes.Internal
 	}

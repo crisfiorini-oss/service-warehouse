@@ -378,7 +378,8 @@ message NativeResult {
 // Warehouse is the generic data plane. Errors are returned as gRPC status codes
 // normalized across backends: NOT_FOUND, ALREADY_EXISTS, FAILED_PRECONDITION
 // (conditional DDL), INVALID_ARGUMENT (bad SQL), UNIMPLEMENTED (unsupported),
-// PERMISSION_DENIED, RESOURCE_EXHAUSTED (quota/bytes-billed), INTERNAL.
+// PERMISSION_DENIED, RESOURCE_EXHAUSTED (quota/bytes-billed), DEADLINE_EXCEEDED
+// (the query or server time limit), INTERNAL.
 service Warehouse {
   // Query plane.
   rpc Query(QueryRequest) returns (stream QueryResponse);
