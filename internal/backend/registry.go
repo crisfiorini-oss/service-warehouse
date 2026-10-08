@@ -14,6 +14,11 @@ type Constructor func(ctx context.Context, cfg Config) (Backend, error)
 // own configuration requirements; nothing outside this package should restate
 // them.
 type Registration struct {
+	// DSN marks a backend that reads SWH_DSN, a backend-native connection string
+	// that stands in for the database. Without it the configuration error asks
+	// for SWH_DATABASE alone, instead of offering a setting the backend would
+	// refuse.
+	DSN bool
 	// SelfContained marks a backend that is not bound to a database — mem holds
 	// its catalog in process, and DuckDB's database is an optional file path.
 	// The zero value means bound, so a backend that says nothing is treated as

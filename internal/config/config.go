@@ -79,8 +79,12 @@ func FromEnv() (Config, error) {
 		return Config{}, fmt.Errorf("unknown backend kind %q (registered: %v)",
 			cfg.Backend.Kind, backend.Registered())
 	}
-	if !reg.SelfContained && cfg.Backend.Database == "" && cfg.Backend.DSN == "" {
-		return Config{}, fmt.Errorf("SWH_DATABASE (or SWH_DSN) is required for backend %q", cfg.Backend.Kind)
+	if !reg.SelfContained && cfg.Backend.Database == "" && !(reg.DSN && cfg.Backend.DSN != "") {
+		need := "SWH_DATABASE"
+		if reg.DSN {
+			need += " (or SWH_DSN)"
+		}
+		return Config{}, fmt.Errorf("%s is required for backend %q", need, cfg.Backend.Kind)
 	}
 	// Last, so a configuration broken in more than one way reports the backend
 	// first: the token cannot be what stops a server that names no real backend.

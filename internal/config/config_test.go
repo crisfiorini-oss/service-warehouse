@@ -16,13 +16,22 @@ import (
 	_ "github.com/codefly-dev/service-warehouse/internal/backend/mem"
 )
 
-// boundKind registers a backend that is bound to a database, standing in for
-// the cloud backends until one is implemented. Registering a real kind's name
-// would assert a support claim this repository does not make.
-const boundKind = "test-bound"
+// boundKind registers a backend that is bound to a database and can be given a
+// DSN instead, standing in for the cloud backends that are not implemented.
+// Registering a real kind's name would assert a support claim this repository
+// does not make. noDSNKind is the same without a DSN, which is what a project-
+// bound backend such as BigQuery looks like to the configuration.
+const (
+	boundKind = "test-bound"
+	noDSNKind = "test-bound-no-dsn"
+)
 
 func init() {
 	backend.Register(boundKind, backend.Registration{
+		DSN:  true,
+		Open: func(context.Context, backend.Config) (backend.Backend, error) { return nil, nil },
+	})
+	backend.Register(noDSNKind, backend.Registration{
 		Open: func(context.Context, backend.Config) (backend.Backend, error) { return nil, nil },
 	})
 }
@@ -68,6 +77,21 @@ func TestBoundBackendRequiresDatabaseOrDSN(t *testing.T) {
 	require.ErrorContains(t, err, boundKind)
 }
 
+// A backend that reads no DSN must not be told to supply one: that sends the
+// operator to set a variable the backend then refuses.
+func TestBackendWithoutDSNAsksForTheDatabaseOnly(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("SWH_BACKEND", noDSNKind)
+
+	_, err := FromEnv()
+	require.ErrorContains(t, err, "SWH_DATABASE")
+	require.NotContains(t, err.Error(), "SWH_DSN")
+
+	t.Setenv("SWH_DSN", "user:pass@account/db")
+	_, err = FromEnv()
+	require.ErrorContains(t, err, "SWH_DATABASE", "a DSN does not stand in for the database of a backend that has none")
+}
+
 func TestBoundBackendAcceptsDSNAlone(t *testing.T) {
 	clearEnv(t)
 	t.Setenv("SWH_BACKEND", boundKind)
@@ -83,10 +107,10 @@ func TestBoundBackendAcceptsDSNAlone(t *testing.T) {
 // backend that does not exist.
 func TestUnknownBackendIsRejectedBeforeItsDatabase(t *testing.T) {
 	clearEnv(t)
-	t.Setenv("SWH_BACKEND", "bigquery")
+	t.Setenv("SWH_BACKEND", "snowflake")
 
 	_, err := FromEnv()
-	require.ErrorContains(t, err, `unknown backend kind "bigquery"`)
+	require.ErrorContains(t, err, `unknown backend kind "snowflake"`)
 	require.ErrorContains(t, err, "mem")
 	require.NotContains(t, err.Error(), "SWH_DATABASE")
 }
