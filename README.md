@@ -67,8 +67,8 @@ schema, or a ClickHouse database — and a **table** is the leaf.
 | Kind | Status | Notes |
 |------|--------|-------|
 | `mem` | **working** | in-memory catalog + DDL, no query engine — the zero-dep default for tests |
+| `duckdb` | **working** | embedded local engine: SQL, Arrow results, DDL and streaming insert, in-process (see [The DuckDB engine](#the-duckdb-engine)) |
 | `bigquery` | **working** | catalog, DDL (incl. CTAS), queries with named parameters and a dry run, job get/cancel, streaming `InsertRows`; no `Load`, `Unload` or `Native` |
-| `duckdb` | skeleton | intended embedded local engine (the "MinIO of warehouses") |
 | `snowflake` | planned | |
 | `redshift` | planned | |
 | `clickhouse` | planned | |
@@ -77,20 +77,23 @@ What each wired backend serves, per RPC. Anything marked `Unimplemented` returns
 that gRPC code and says so in `Capabilities`, so a client introspects first and
 never discovers a gap by a wrong answer.
 
-| RPC | `mem` | `bigquery` |
-|-----|-------|------------|
-| `Query` | `Unimplemented` | yes — named parameters, dry run, byte cap, timeout |
-| `GetJob` / `CancelJob` | `NotFound` (it runs no jobs) | yes |
-| `ListDatasets` / `ListTables` / `GetTable` | yes | yes |
-| `CreateDataset` / `DropDataset` | yes | yes |
-| `CreateTable` / `DropTable` | yes (CTAS: `Unimplemented`) | yes, including CTAS |
-| `InsertRows` | `Unimplemented` | yes — streaming inserts, per-row refusals |
-| `Load` / `Unload` | `Unimplemented` | `Unimplemented` |
-| `Native` | `Unimplemented` | `Unimplemented` (no verbs) |
+| RPC | `mem` | `duckdb` | `bigquery` |
+|-----|-------|----------|------------|
+| `Query` | `Unimplemented` | yes — one statement, `$name` parameters, dry run, timeout | yes — named parameters, dry run, byte cap, timeout |
+| `GetJob` / `CancelJob` | `NotFound` (it runs no jobs) | `Unimplemented` | yes |
+| `ListDatasets` / `ListTables` / `GetTable` | yes | yes | yes |
+| `CreateDataset` / `DropDataset` | yes | yes | yes |
+| `CreateTable` / `DropTable` | yes (CTAS: `Unimplemented`) | yes, including CTAS | yes, including CTAS |
+| `InsertRows` | `Unimplemented` | yes — per-row refusals | yes — streaming inserts, per-row refusals |
+| `Load` / `Unload` | `Unimplemented` | `Unimplemented` | `Unimplemented` |
+| `Native` | `Unimplemented` | `Unimplemented` | `Unimplemented` (no verbs) |
 
-The next milestone is `duckdb` (SQL execution + Arrow encoding), which makes the
-"develop on DuckDB, ship on BigQuery" story real; until then the zero-dependency
-way to run the server is `SWH_BACKEND=mem`.
+`duckdb` is the default, and it is the engine that makes "develop on DuckDB, ship
+on BigQuery" real: a client runs the same SQL and reads the same Arrow types on
+both. `mem` serves the whole catalog/DDL plane and returns `Unimplemented` for
+query and data-movement, so a client introspects `Capabilities` and never
+discovers a gap by a wrong answer — and so does every `duckdb` call it does not
+offer.
 
 ### The BigQuery backend
 
@@ -163,22 +166,120 @@ the batch's columns with the table's metadata, so no vendor text decides it; a
 table altered while the call runs can surface as `INVALID_VALUE`. An Arrow type
 BigQuery has no equivalent of (map, duration, dictionary) is `Unimplemented`.
 
+## The DuckDB engine
+
+`SWH_BACKEND=duckdb` runs DuckDB inside the server process, through the
+[`duckdb/duckdb-go`](https://github.com/duckdb/duckdb-go) driver (cgo). Nothing
+else has to be running. `SWH_DATABASE` is a database file; empty or `:memory:` is
+an in-memory database. `SWH_DSN` is DuckDB's own DSN (`path?option=value`) and
+replaces `SWH_DATABASE`.
+
+| Call | DuckDB |
+|------|--------|
+| `Query` | one statement per request: `SELECT`, `EXPLAIN`, `INSERT`, `UPDATE`, `DELETE`, `CREATE`, `ALTER`, `DROP`. Anything else (`SET`, `ATTACH`, `COPY`, `PRAGMA`, transactions, `RETURNING`, a second statement) is refused. A query's job is already `DONE` when the header is sent; there are no jobs to look up |
+| `Query` `dry_run` | the statement is prepared, never run: syntax, names and types are checked and the result schema is returned. Nothing is priced |
+| `Query` params | DuckDB's `$name`. `@name` and `:name` are not rewritten (a rewrite cannot tell them from `::` casts and slices), and a parameter the SQL never reads is an error. Typed: BOOL, INT64, FLOAT64, STRING, DATE, TIME, TIMESTAMP (no zone), TIMESTAMPTZ (RFC 3339). An untyped parameter is text that DuckDB casts to what the SQL expects. NUMERIC, BYTES, INTERVAL, JSON, ARRAY, STRUCT parameters are `Unimplemented` (pass a STRING and cast it in the SQL) |
+| catalog and DDL | a dataset is a schema of the opened database; a table is a table or a view. Names compare without regard to case, as in DuckDB. `NumRows` is the engine's estimate; sizes and timestamps are not tracked and stay 0 |
+| `InsertRows` | columns are matched by name; an omitted column takes its default or NULL. See below |
+| `GetJob`, `CancelJob`, `Load`, `Unload`, `Native` | `Unimplemented` |
+| `max_bytes_billed`, `SWH_MAX_QUERY_BYTES` | DuckDB bills nothing and cannot meter a scan. The request field is `Unimplemented`, and the server **refuses to start** with `SWH_MAX_QUERY_BYTES` set rather than run uncapped |
+| `timeout_ms`, `SWH_QUERY_TIMEOUT` | the shorter of the two applies, and the statement is interrupted; it fails `DeadlineExceeded` |
+
+Options a dataset or a table has elsewhere and DuckDB has not — a location,
+labels, a description, partitioning, clustering — are `Unimplemented`, not
+accepted and dropped. So is a `GEOGRAPHY` column (DuckDB's `GEOMETRY` is planar).
+A column whose `nullable` is unset is `NOT NULL`, as the contract spells it. A
+configured `SWH_DATASET` must exist: unqualified names resolve in it, and running
+against a search path that is missing would resolve them somewhere else.
+
+### Types
+
+Every integer width is `INT64` and every float is `FLOAT64`, in the header's
+portable schema and in the Arrow batches, so a client reads the same Arrow type
+here as on a backend that has one width. `native_type` keeps DuckDB's spelling.
+
+| DuckDB | Portable | Arrow |
+|--------|----------|-------|
+| `BOOLEAN` | BOOL | `bool` |
+| `TINYINT` … `BIGINT`, `UTINYINT` … `UINTEGER` | INT64 | `int64` |
+| `UBIGINT` | NUMERIC(20,0) | `decimal128(20,0)` |
+| `HUGEINT`, `UHUGEINT` | NUMERIC(38,0); a value of more than 38 digits is refused | `decimal128(38,0)` |
+| `FLOAT`, `DOUBLE` | FLOAT64 | `float64` |
+| `DECIMAL(p,s)` | NUMERIC(p,s) | `decimal128(p,s)` |
+| `VARCHAR`, `ENUM` | STRING | `utf8` |
+| `BLOB` | BYTES | `binary` |
+| `DATE` | DATE | `date32` |
+| `TIME` | TIME | `time64[us]` |
+| `TIMESTAMP`, `TIMESTAMP_S`, `TIMESTAMP_MS` | TIMESTAMP | `timestamp[us]` |
+| `TIMESTAMP_NS` | TIMESTAMP | `timestamp[ns]` |
+| `TIMESTAMPTZ` | TIMESTAMPTZ | `timestamp[us, UTC]` |
+| `INTERVAL` | INTERVAL | `month_day_nano_interval` |
+| `LIST`, `ARRAY` | ARRAY | `list` |
+| `STRUCT` | STRUCT | `struct` |
+| `UUID`, `TIMETZ`, `BIT`, `BIGNUM`, `GEOMETRY` | UNKNOWN | `utf8` text (`binary` for `GEOMETRY`) |
+| `JSON` | JSON — **a result column is refused**, see below | |
+| `MAP`, `UNION` | not returned | |
+
+`JSON` is stored and described, and `InsertRows` writes the text as given (compacted), but a query
+that returns a JSON column fails `Unimplemented`: the driver decodes JSON into Go
+values before this server sees it, which rounds integers above 2^53 and reads a
+JSON `null` as SQL `NULL`. `CAST(col AS VARCHAR)` returns the stored text.
+
+### Arrow on the wire
+
+`arrow_ipc_schema` is an Arrow IPC *schema message* and every batch is an Arrow
+IPC *record-batch message* (the encapsulated form: continuation marker, length,
+metadata, body). The schema message followed by the batch messages is a valid
+Arrow IPC stream, so a client feeds them to any Arrow reader; `internal/arrowipc`
+does the framing for both directions. `InsertRows` takes the same two parts; with
+no header schema, the first batch message must carry it.
+
+### InsertRows
+
+The insert is not atomic and says which rows it refused. A batch is written in one
+transaction; if the engine refuses it, each of its rows is tried alone, so the
+accepted rows are in the table and each refused row is reported by its offset in
+the stream (`RowError.row_index`). A row is refused for a constraint, or for a
+value its column cannot hold — out of range, too many digits, not JSON, finer
+than a microsecond, not a member of the `ENUM`. The message is the server's own
+and never the engine's. A failure that is not about a row (the table is gone, the
+stream broke) fails the call.
+
+### SQL cannot reach the host
+
+This server authorizes nothing, so the engine is opened closed: SQL cannot read or
+write host files (`read_csv`, `COPY`, `ATTACH` of a file), cannot load or install
+extensions, and cannot change the engine's configuration (`lock_configuration`).
+`SWH_DSN` may not set these options, and the server reads them back at startup and
+refuses to run if they did not apply. Each request gets its own connection, so no
+session state (a temporary table, a `USE`) leaks from one request to another.
+
+### Errors
+
+DuckDB's failures arrive as structured exception types and are mapped to codes;
+the message a client sees is the server's own, never DuckDB's, which quotes the
+caller's SQL and host paths. A missing table or function is `NotFound`; an
+existing one is `AlreadyExists`; bad SQL, a bad cast or an out-of-range value is
+`InvalidArgument`; a constraint or a dependency is `FailedPrecondition`; reaching
+for the host is `PermissionDenied`. DuckDB gives no structured signal for a missing
+schema in a qualified name, so that is `InvalidArgument`.
+
 ## Configuration (env)
 
 | Var | Default | Notes |
 |-----|---------|-------|
 | `SWH_LISTEN` | `:9465` | gRPC listen address |
 | `SWH_BACKEND` | `duckdb` | `mem` \| `duckdb` \| `bigquery` \| `snowflake` \| `redshift` \| `clickhouse` |
-| `SWH_DATABASE` | — | required for cloud backends (BQ project / DB name); DuckDB path |
-| `SWH_DATASET` | — | default namespace for unqualified names (for BigQuery also the default dataset of a query's SQL) |
+| `SWH_DATABASE` | — | required for cloud backends (BQ project / DB name); for DuckDB a database file, empty = in memory |
+| `SWH_DATASET` | — | default namespace for unqualified names (for BigQuery also the default dataset of a query's SQL; for DuckDB it must exist) |
 | `SWH_LOCATION` | — | region for datasets/jobs (BigQuery: where jobs run and where a dataset is created when the request names none) |
-| `SWH_DSN` | — | backend-native connection string (overrides discrete fields); `bigquery` has none and refuses it |
+| `SWH_DSN` | — | backend-native connection string (overrides discrete fields); `bigquery` has none and refuses it; for DuckDB `path?option=value` |
 | `SWH_HOST` / `SWH_PORT` | — | SQL backend host/port; `bigquery` refuses them |
 | `SWH_USER` / `SWH_PASSWORD` | — | credentials; `bigquery` refuses them |
 | `SWH_ACCOUNT` | — | Snowflake account identifier; `bigquery` refuses it |
 | `SWH_CREDENTIALS_FILE` | — | BigQuery service-account JSON (else ADC) |
-| `SWH_MAX_QUERY_BYTES` | `0` | per-query scan cap (0 = backend default); for BigQuery the ceiling of `maximumBytesBilled`, which a request may only lower |
-| `SWH_QUERY_TIMEOUT` | `0` | per-query timeout (Go duration; 0 = backend default); a request may only shorten it |
+| `SWH_MAX_QUERY_BYTES` | `0` | per-query scan cap (0 = backend default); for BigQuery the ceiling of `maximumBytesBilled`, which a request may only lower; DuckDB cannot meter bytes and refuses to start if it is set |
+| `SWH_QUERY_TIMEOUT` | `0` | per-query timeout (Go duration; 0 = backend default); a request's `timeout_ms` can only shorten it |
 | `SWH_AUTH_TOKEN` | — | shared secret every caller must present; required unless `SWH_ALLOW_ANONYMOUS=true` |
 | `SWH_ALLOW_ANONYMOUS` | `false` | `true` accepts callers with no token; refused together with `SWH_AUTH_TOKEN` |
 | `SWH_MAX_ARROW_MESSAGE_BYTES` | `4194304` (4 MiB) | largest body of one Arrow IPC message a client may send (`InsertRows`); a larger one is `InvalidArgument`, refused before any of it is allocated. Must be positive. The default is grpc-go's own receive limit, which a message cannot exceed anyway: raising this above it has no effect until the gRPC server's limit is raised too |
@@ -234,7 +335,7 @@ process and the credential, not the warehouse: the gateway does not probe its
 backend and no RPC reports that. Set `backend:` in `service.codefly.yaml` to
 choose the engine. Newly generated services declare `backend: mem` (the
 catalog-only backend, with no query execution). Removing that setting falls back
-to the gateway's unsupported `duckdb` default and startup fails. The agent's
+to the gateway's default, the embedded `duckdb` engine, in memory. The agent's
 `Test` step performs the same health and authenticated `Capabilities` check as
 `Start`, so conformance's Init → Test path rejects a dead gateway. It returns an
 explicit run-level `PASSED` or `FAILED` result and consistent counts; CLI 0.1.185
@@ -406,7 +507,7 @@ codefly generate proto --proto ./proto --output ./gen
 
 go build ./...
 go vet ./...
-go test -race ./...      # unit tests: mem, a bufconn server, the agent, and the
+go test -race ./...      # unit tests: mem, duckdb in-process, a bufconn server, the agent, and the
                          # bigquery backend against a fake of BigQuery's REST API
 ```
 
@@ -443,6 +544,10 @@ creates a scratch dataset of its own with a random name, works only inside it, a
 deletes it. `SWH_TEST_BIGQUERY_LOCATION` and `SWH_TEST_BIGQUERY_CREDENTIALS_FILE`
 are optional (Application Default Credentials otherwise). CI runs no BigQuery, so
 that test has not run in CI.
+
+The `duckdb` backend is cgo: building needs a C compiler, and on Linux a C++
+runtime (`g++`, for `libstdc++`). `ubuntu-latest` has both; a minimal Go image
+does not. Its tests run the real engine in-process and need no database or network.
 
 `buf` is never run on the host. `codefly generate proto` runs it inside the
 versioned proto companion image (`ghcr.io/codefly-dev/proto`), so the plugin

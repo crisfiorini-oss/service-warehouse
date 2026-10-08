@@ -1,7 +1,7 @@
 // Package mem is an in-memory warehouse backend: a fully working catalog
 // (datasets + tables + DDL) with no query engine. It is the zero-dependency
-// default for local development and tests — the stand-in until the embedded
-// DuckDB backend lands as the local engine. The query and data-movement plane
+// default for tests that need a backend and nothing else; the duckdb backend is
+// the local engine when a query has to run. The query and data-movement plane
 // returns serr.Unsupported, which the gRPC layer maps to UNIMPLEMENTED, so a
 // client introspects Capabilities and never discovers the gap by a wrong
 // answer.

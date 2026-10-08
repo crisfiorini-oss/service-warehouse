@@ -50,7 +50,7 @@ const configurationGroup = "warehouse"
 type Settings struct {
 	// Backend selects the warehouse. Create defaults new services to mem, the
 	// catalog-only backend. An explicitly empty setting uses the gateway's
-	// default, currently the unsupported DuckDB skeleton.
+	// default, the embedded DuckDB engine.
 	Backend string `yaml:"backend"`
 	// Database is the database the gateway is bound to (a BigQuery project, a
 	// Snowflake or Redshift database, an embedded engine's file).

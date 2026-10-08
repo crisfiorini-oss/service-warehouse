@@ -7,6 +7,7 @@ require (
 	cloud.google.com/go/bigquery v1.85.0
 	github.com/apache/arrow-go/v18 v18.8.0
 	github.com/codefly-dev/core v0.18.1
+	github.com/duckdb/duckdb-go/v2 v2.10506.0
 	github.com/google/flatbuffers v25.12.19+incompatible
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/oauth2 v0.36.0
@@ -46,6 +47,12 @@ require (
 	github.com/docker/docker v28.5.2+incompatible // indirect
 	github.com/docker/go-connections v0.8.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
+	github.com/duckdb/duckdb-go-bindings v0.10506.0 // indirect
+	github.com/duckdb/duckdb-go-bindings/lib/darwin-amd64 v0.10506.0 // indirect
+	github.com/duckdb/duckdb-go-bindings/lib/darwin-arm64 v0.10506.0 // indirect
+	github.com/duckdb/duckdb-go-bindings/lib/linux-amd64 v0.10506.0 // indirect
+	github.com/duckdb/duckdb-go-bindings/lib/linux-arm64 v0.10506.0 // indirect
+	github.com/duckdb/duckdb-go-bindings/lib/windows-amd64 v0.10506.0 // indirect
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect

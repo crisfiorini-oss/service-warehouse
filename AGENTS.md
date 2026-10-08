@@ -79,7 +79,9 @@ preferences; each is a rule an agent broke at real cost.
    instead of the pinned one; it never reaches the gateway.) If you are typing a
    connection string, a port, or a credential into Go source, a test, or a
    manifest, you are encoding something true only on your machine for the next
-   ten minutes. A test that needs a backend uses `mem`, which needs nothing.
+   ten minutes. A test that needs a backend uses `mem`, which needs nothing, or
+   `duckdb` in memory when it needs a real query engine — it runs in-process and
+   needs no setup either.
 5. **Diagnose, do not pattern-match.** "It started working when I set X" is
    not a diagnosis — set X back and confirm it breaks. Do not trust an error
    message before checking it. Measured here: `SWH_BACKEND=mem` used to fail
@@ -139,19 +141,23 @@ exercise the generated-service test phase; published-image audit still refuses
 the absent digest. A passing binary audit is not full conformance. `codefly ci run` operates on a consuming workspace: this agent
 repository has no workspace manifest.
 
-Run the server locally against the zero-dependency backend — it needs no
-database, no warehouse credential, and no network. It still refuses an
-unauthenticated listener, so a local run states that choice (or sets
-`SWH_AUTH_TOKEN`):
+Run the server locally — it needs no database, no warehouse credential, and no
+network. It still refuses an unauthenticated listener, so a local run states
+that choice (or sets `SWH_AUTH_TOKEN`):
 
 ```sh
-SWH_BACKEND=mem SWH_ALLOW_ANONYMOUS=true go run ./cmd/service-warehouse
+SWH_ALLOW_ANONYMOUS=true go run ./cmd/service-warehouse                                  # the embedded DuckDB engine, in memory
+SWH_ALLOW_ANONYMOUS=true SWH_DATABASE=./warehouse.duckdb go run ./cmd/service-warehouse  # the same, kept in a file
+SWH_BACKEND=mem SWH_ALLOW_ANONYMOUS=true go run ./cmd/service-warehouse                  # catalog only, no query engine
 ```
 
-The default `SWH_BACKEND=duckdb` refuses to start, by design: the DuckDB
-backend is a registered skeleton whose constructor returns `Unsupported`
-rather than degrading into something that serves wrong answers. A hard failure
-at startup is the intended behaviour, not a bug to route around.
+DuckDB is cgo: building needs a C compiler, and on Linux a C++ runtime (`g++`
+for `libstdc++`). `ubuntu-latest` has both, so CI needs no extra step; a
+machine without them fails to link, which is not a bug in the repo. The engine
+is opened closed on purpose (no host files, no extensions, locked
+configuration — see the README), and it refuses to start when it was asked for
+something it cannot honor, such as `SWH_MAX_QUERY_BYTES`. A hard failure at
+startup is the intended behaviour, not a bug to route around.
 
 **Regenerating stubs is not a gate, and that is a trap.** CI never runs `buf`,
 so nothing catches generated-file drift. The committed stubs reproduce
@@ -195,6 +201,10 @@ Keep this file short; depth belongs in the file that owns the subject.
 - `proto/codefly/warehouse/v0/warehouse.proto` — the contract of record.
 - `internal/backend/backend.go` — the provider-agnostic interface every
   backend implements, and the portable type model.
+- [README.md](README.md#the-duckdb-engine) — what the DuckDB engine honors, the
+  type map, the Arrow framing and what is refused. `internal/arrowipc` owns that
+  framing for every backend; a backend that produces or ingests Arrow uses it
+  and does not re-derive it.
 - [`cmd/service-warehouse/distribution_test.go`](cmd/service-warehouse/distribution_test.go)
   — gates the claim that this repo ships one image, the gateway, and that its
   SBOM evidence exists. It lists every path that builds or deploys an image and
