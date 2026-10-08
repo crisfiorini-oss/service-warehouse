@@ -43,8 +43,10 @@ BigQuery Storage / Snowflake / ADBC converged on). Anything backend-specific
 | `Native` | escape hatch for backend-specific verbs |
 
 Errors are normalized to gRPC status codes (`NotFound`, `AlreadyExists`,
-`FailedPrecondition`, `Unimplemented`, `ResourceExhausted`, …) so clients never
-parse a vendor SQLSTATE or reason string.
+`FailedPrecondition`, `Unimplemented`, `ResourceExhausted`, `DeadlineExceeded`,
+…) so clients never parse a vendor SQLSTATE or reason string. The text of a
+failure is written by this server; the one piece of vendor text a client can
+read is the diagnosis of its own invalid SQL (`InvalidArgument`).
 
 ## Results are Arrow
 
@@ -65,17 +67,97 @@ schema, or a ClickHouse database — and a **table** is the leaf.
 | Kind | Status | Notes |
 |------|--------|-------|
 | `mem` | **working** | in-memory catalog + DDL, no query engine — the zero-dep default for tests |
+| `bigquery` | **working** | catalog, DDL (incl. CTAS), queries with named parameters and a dry run, job get/cancel, streaming `InsertRows`; no `Load`, `Unload` or `Native` |
 | `duckdb` | skeleton | intended embedded local engine (the "MinIO of warehouses") |
-| `bigquery` | planned | |
 | `snowflake` | planned | |
 | `redshift` | planned | |
 | `clickhouse` | planned | |
 
-Today `mem` is the only fully-wired backend: it serves the whole catalog/DDL
-plane and returns `Unimplemented` for query and data-movement, so a client
-introspects `Capabilities` and never discovers the gap by a wrong answer. The
-next milestone is `duckdb` (SQL execution + Arrow encoding), which makes the
-"develop on DuckDB, ship on BigQuery" story real.
+What each wired backend serves, per RPC. Anything marked `Unimplemented` returns
+that gRPC code and says so in `Capabilities`, so a client introspects first and
+never discovers a gap by a wrong answer.
+
+| RPC | `mem` | `bigquery` |
+|-----|-------|------------|
+| `Query` | `Unimplemented` | yes — named parameters, dry run, byte cap, timeout |
+| `GetJob` / `CancelJob` | `NotFound` (it runs no jobs) | yes |
+| `ListDatasets` / `ListTables` / `GetTable` | yes | yes |
+| `CreateDataset` / `DropDataset` | yes | yes |
+| `CreateTable` / `DropTable` | yes (CTAS: `Unimplemented`) | yes, including CTAS |
+| `InsertRows` | `Unimplemented` | yes — streaming inserts, per-row refusals |
+| `Load` / `Unload` | `Unimplemented` | `Unimplemented` |
+| `Native` | `Unimplemented` | `Unimplemented` (no verbs) |
+
+The next milestone is `duckdb` (SQL execution + Arrow encoding), which makes the
+"develop on DuckDB, ship on BigQuery" story real; until then the zero-dependency
+way to run the server is `SWH_BACKEND=mem`.
+
+### The BigQuery backend
+
+Credentials are Application Default Credentials, or the service-account key
+named by `SWH_CREDENTIALS_FILE`; nothing else is read. The server is bound to
+the project in `SWH_DATABASE`: jobs run and are billed in it, and `dataset` names
+are datasets of it. What the credentials must be allowed to do follows the RPCs a
+deployment uses: run query jobs and read data (`Query`, CTAS), read table
+metadata (`GetTable`, `ListTables`, and `InsertRows`, which reads it to compare
+the batch with the table), create and delete datasets and tables, and stream rows
+into a table.
+
+**Queries.** `sql` uses BigQuery's named parameters, `@name`; a parameter's `name`
+is given without the sigil. `value` is text, checked here and bound by BigQuery
+with the type you give, never spliced into the SQL: booleans as `true`/`false`,
+integers and floats as decimal text, `NUMERIC` as a plain decimal (it becomes
+`BIGNUMERIC` when only that holds it, and a value that would be rounded is
+refused), bytes as standard base64, dates as `YYYY-MM-DD`, `TIME` and wall-clock
+timestamps without a zone, instants as RFC 3339 with a zone, intervals as
+`Y-M D H:M:S[.F]`, JSON and geography (WKT) as text. Array and struct parameters
+are `Unimplemented`; sub-microsecond precision is refused, not truncated. The
+query has finished by the time its header is sent (the schema is known only
+then), so `CancelJob` cannot reach a running query: cancel the call, which also
+cancels the job. The job `id` is opaque; hand it back to `GetJob`/`CancelJob`.
+`max_bytes_billed` and `timeout_ms` are tightened by `SWH_MAX_QUERY_BYTES` and
+`SWH_QUERY_TIMEOUT`: the smaller of the two applies. A `DML`/`DDL` statement
+returns a header with an empty schema and `rows_affected`.
+
+**Results.** The header's `arrow_ipc_schema` is one Arrow IPC *Schema message*, and
+each `arrow_batch` is one IPC *RecordBatch message* with no schema, up to 8192
+rows or about 1 MiB of text and bytes. The schema followed by the batches is a
+valid Arrow IPC stream, so a client concatenates them and reads with any Arrow
+reader. Types map as `BOOL`→bool, `INT64`→int64, `FLOAT64`→float64,
+`NUMERIC`→decimal128 (`BIGNUMERIC`→decimal256), `STRING`/`JSON`/`GEOGRAPHY`→utf8,
+`BYTES`→binary, `DATE`→date32, `TIME`→time64[us], `DATETIME`→timestamp[us],
+`TIMESTAMP`→timestamp[us, UTC], `INTERVAL`→month-day-nano interval,
+`ARRAY`→list, `STRUCT`→struct. A column with no portable bucket (BigQuery
+`RANGE`) is `UNKNOWN` in the catalog with its spelling in `native_type`, and a
+query that returns one is `Unimplemented`.
+
+**Catalog.** Listings carry BigQuery's names only, so each entry's detail is a
+metadata request of its own; pages default to 50 entries and never exceed 500.
+`partition_by` is one column at day granularity (`_PARTITIONTIME` for ingestion
+time); more than one is `Unimplemented`. Names are checked against what BigQuery
+allows before they are used.
+
+**`InsertRows`.** Arrow comes in the same framing: the header's schema message
+and one RecordBatch message per batch, or batches that each carry their own
+schema. Rows are sent as streaming inserts of at most 500 rows and about 8 MiB.
+The call is not atomic: BigQuery is asked to skip invalid rows, so valid rows are
+stored and refused ones come back as `errors`, each with its `row_index` (counted
+from 0 across every batch of the call) and a `reason`:
+
+| `RowRefusal` | meaning | set by `bigquery` when |
+|--------------|---------|------------------------|
+| `INVALID_VALUE` | a value cannot be stored in its column | BigQuery refuses the row's content, or a value cannot be encoded (text that is not UTF-8, an out-of-range time) |
+| `ROW_TOO_LARGE` | the row alone is bigger than a row may be | the row passes 8 MiB as BigQuery encodes it |
+| `SCHEMA_MISMATCH` | the table, not the row, disagrees | the batch has a column the table lacks, or lacks a required column; every row of the batch is refused and none is sent |
+| `UNSPECIFIED` | refused, no reason stated | not set by `bigquery` |
+
+A failure that says nothing against a row (a throttle, a quota, a timeout, a dead
+backend) fails the call with a status code instead and is never a row refusal;
+rows of earlier requests of that call may already be stored, so a retry can store
+a row twice — delivery is at least once. A schema mismatch is found by comparing
+the batch's columns with the table's metadata, so no vendor text decides it; a
+table altered while the call runs can surface as `INVALID_VALUE`. An Arrow type
+BigQuery has no equivalent of (map, duration, dictionary) is `Unimplemented`.
 
 ## Configuration (env)
 
@@ -84,17 +166,22 @@ next milestone is `duckdb` (SQL execution + Arrow encoding), which makes the
 | `SWH_LISTEN` | `:9465` | gRPC listen address |
 | `SWH_BACKEND` | `duckdb` | `mem` \| `duckdb` \| `bigquery` \| `snowflake` \| `redshift` \| `clickhouse` |
 | `SWH_DATABASE` | — | required for cloud backends (BQ project / DB name); DuckDB path |
-| `SWH_DATASET` | — | default namespace for unqualified names |
-| `SWH_LOCATION` | — | region for datasets/jobs (BigQuery) |
-| `SWH_DSN` | — | backend-native connection string (overrides discrete fields) |
-| `SWH_HOST` / `SWH_PORT` | — | SQL backend host/port |
-| `SWH_USER` / `SWH_PASSWORD` | — | credentials |
-| `SWH_ACCOUNT` | — | Snowflake account identifier |
+| `SWH_DATASET` | — | default namespace for unqualified names (for BigQuery also the default dataset of a query's SQL) |
+| `SWH_LOCATION` | — | region for datasets/jobs (BigQuery: where jobs run and where a dataset is created when the request names none) |
+| `SWH_DSN` | — | backend-native connection string (overrides discrete fields); `bigquery` has none and refuses it |
+| `SWH_HOST` / `SWH_PORT` | — | SQL backend host/port; `bigquery` refuses them |
+| `SWH_USER` / `SWH_PASSWORD` | — | credentials; `bigquery` refuses them |
+| `SWH_ACCOUNT` | — | Snowflake account identifier; `bigquery` refuses it |
 | `SWH_CREDENTIALS_FILE` | — | BigQuery service-account JSON (else ADC) |
-| `SWH_MAX_QUERY_BYTES` | `0` | per-query scan cap (0 = backend default) |
-| `SWH_QUERY_TIMEOUT` | `0` | per-query timeout (Go duration; 0 = backend default) |
+| `SWH_MAX_QUERY_BYTES` | `0` | per-query scan cap (0 = backend default); for BigQuery the ceiling of `maximumBytesBilled`, which a request may only lower |
+| `SWH_QUERY_TIMEOUT` | `0` | per-query timeout (Go duration; 0 = backend default); a request may only shorten it |
 | `SWH_AUTH_TOKEN` | — | shared secret every caller must present; required unless `SWH_ALLOW_ANONYMOUS=true` |
 | `SWH_ALLOW_ANONYMOUS` | `false` | `true` accepts callers with no token; refused together with `SWH_AUTH_TOKEN` |
+
+The `bigquery` backend reads `SWH_DATABASE` (required), `SWH_DATASET`,
+`SWH_LOCATION`, `SWH_CREDENTIALS_FILE`, `SWH_MAX_QUERY_BYTES` and
+`SWH_QUERY_TIMEOUT`, and adds no variable of its own. A setting it never reads is
+a startup error, not something silently ignored.
 
 ## Authentication
 
@@ -314,7 +401,8 @@ codefly generate proto --proto ./proto --output ./gen
 
 go build ./...
 go vet ./...
-go test -race ./...      # unit tests (mem backend + bufconn server) and the agent's
+go test -race ./...      # unit tests: mem, a bufconn server, the agent, and the
+                         # bigquery backend against a fake of BigQuery's REST API
 ```
 
 The release-gate regression tests use `git` and `jq` (also present in CI).
@@ -340,6 +428,17 @@ SWH_GATEWAY_IMAGE=service-warehouse:e2e go test -v -tags e2e -count=1 .
 With `SWH_GATEWAY_IMAGE` unset they skip, and a skipped run still prints `ok`:
 read `-v` for `--- PASS`.
 
+The `bigquery` unit tests contact nothing: they run the real client against a
+fake of BigQuery's REST API served from the test process, so they check what the
+backend sends and how it reads an answer, not what BigQuery does. The one test
+that talks to BigQuery, `TestAgainstRealBigQuery` in
+[`internal/backend/bigquery/integration_test.go`](internal/backend/bigquery/integration_test.go),
+is skipped unless `SWH_TEST_BIGQUERY_PROJECT` names a project it may use. It
+creates a scratch dataset of its own with a random name, works only inside it, and
+deletes it. `SWH_TEST_BIGQUERY_LOCATION` and `SWH_TEST_BIGQUERY_CREDENTIALS_FILE`
+are optional (Application Default Credentials otherwise). CI runs no BigQuery, so
+that test has not run in CI.
+
 `buf` is never run on the host. `codefly generate proto` runs it inside the
 versioned proto companion image (`ghcr.io/codefly-dev/proto`), so the plugin
 versions and the `goimports` pass are the image's, fixed by its tag — two
@@ -361,7 +460,7 @@ companion's — the drift gate, without putting `buf` in CI.
 proto/codefly/warehouse/v0/   the uniform API
 proto/buf.{yaml,gen.yaml}     buf config, read by the proto companion
 gen/                          generated gRPC stubs
-internal/backend/             Backend interface + mem, duckdb (+ cloud backends)
+internal/backend/             Backend interface + mem, duckdb, bigquery (+ more cloud backends)
 internal/server/              gRPC Warehouse implementation + proto↔backend mapping
 internal/config/              env configuration
 internal/serr/                normalized error model
