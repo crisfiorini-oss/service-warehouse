@@ -353,6 +353,73 @@ func (WriteDisposition) EnumDescriptor() ([]byte, []int) {
 	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{4}
 }
 
+// RowRefusal is the portable reason a backend permanently refused one row of an
+// InsertRows. It answers what a caller may do next: retrying the same row against
+// the same table gets the same answer, unless the reason says the table, not the
+// row, is what disagrees. A failure that says nothing against the row (a
+// throttle, a quota, a timeout, a dead backend) is never a row refusal; it fails
+// the call with a status code instead.
+type RowRefusal int32
+
+const (
+	// The backend refused the row without saying which of the reasons below
+	// applies, or none of them does. Treat it as a refusal of the row.
+	RowRefusal_ROW_REFUSAL_UNSPECIFIED RowRefusal = 0
+	// A value cannot be stored in its column: the wrong type, out of range,
+	// malformed, not valid text, or null in a column that is required.
+	RowRefusal_ROW_REFUSAL_INVALID_VALUE RowRefusal = 1
+	// The row alone is bigger than the backend accepts for one row.
+	RowRefusal_ROW_REFUSAL_ROW_TOO_LARGE RowRefusal = 2
+	// The row's columns disagree with the table's: a column the table does not
+	// have, or a required column the row does not carry. The table would have to
+	// change for the same row to be accepted, so a caller must not conclude the
+	// row itself is bad.
+	RowRefusal_ROW_REFUSAL_SCHEMA_MISMATCH RowRefusal = 3
+)
+
+// Enum value maps for RowRefusal.
+var (
+	RowRefusal_name = map[int32]string{
+		0: "ROW_REFUSAL_UNSPECIFIED",
+		1: "ROW_REFUSAL_INVALID_VALUE",
+		2: "ROW_REFUSAL_ROW_TOO_LARGE",
+		3: "ROW_REFUSAL_SCHEMA_MISMATCH",
+	}
+	RowRefusal_value = map[string]int32{
+		"ROW_REFUSAL_UNSPECIFIED":     0,
+		"ROW_REFUSAL_INVALID_VALUE":   1,
+		"ROW_REFUSAL_ROW_TOO_LARGE":   2,
+		"ROW_REFUSAL_SCHEMA_MISMATCH": 3,
+	}
+)
+
+func (x RowRefusal) Enum() *RowRefusal {
+	p := new(RowRefusal)
+	*p = x
+	return p
+}
+
+func (x RowRefusal) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RowRefusal) Descriptor() protoreflect.EnumDescriptor {
+	return file_codefly_warehouse_v0_warehouse_proto_enumTypes[5].Descriptor()
+}
+
+func (RowRefusal) Type() protoreflect.EnumType {
+	return &file_codefly_warehouse_v0_warehouse_proto_enumTypes[5]
+}
+
+func (x RowRefusal) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RowRefusal.Descriptor instead.
+func (RowRefusal) EnumDescriptor() ([]byte, []int) {
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{5}
+}
+
 // Column describes one field of a table or a result set. native_type is the
 // exact backend spelling (e.g. "NUMERIC(38,9)", "LowCardinality(String)") for
 // clients that need it; type is the portable bucket.
@@ -2321,11 +2388,15 @@ func (x *InsertRowsResult) GetErrors() []*RowError {
 }
 
 // RowError reports a per-row rejection — streaming insert is not atomic, so
-// partial success is normal and surfaced per offset.
+// partial success is normal and surfaced per offset. row_index counts rows from
+// 0 across every batch of the call, in the order they were sent. error is a
+// description written by this server, never a backend's own text; branch on
+// reason.
 type RowError struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RowIndex      int64                  `protobuf:"varint,1,opt,name=row_index,json=rowIndex,proto3" json:"row_index,omitempty"`
 	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Reason        RowRefusal             `protobuf:"varint,3,opt,name=reason,proto3,enum=codefly.warehouse.v0.RowRefusal" json:"reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2372,6 +2443,13 @@ func (x *RowError) GetError() string {
 		return x.Error
 	}
 	return ""
+}
+
+func (x *RowError) GetReason() RowRefusal {
+	if x != nil {
+		return x.Reason
+	}
+	return RowRefusal_ROW_REFUSAL_UNSPECIFIED
 }
 
 type CapabilitiesRequest struct {
@@ -2801,10 +2879,11 @@ const file_codefly_warehouse_v0_warehouse_proto_rawDesc = "" +
 	"\x10arrow_ipc_schema\x18\x02 \x01(\fR\x0earrowIpcSchema\"o\n" +
 	"\x10InsertRowsResult\x12#\n" +
 	"\rrows_inserted\x18\x01 \x01(\x03R\frowsInserted\x126\n" +
-	"\x06errors\x18\x02 \x03(\v2\x1e.codefly.warehouse.v0.RowErrorR\x06errors\"=\n" +
+	"\x06errors\x18\x02 \x03(\v2\x1e.codefly.warehouse.v0.RowErrorR\x06errors\"w\n" +
 	"\bRowError\x12\x1b\n" +
 	"\trow_index\x18\x01 \x01(\x03R\browIndex\x12\x14\n" +
-	"\x05error\x18\x02 \x01(\tR\x05error\"\x15\n" +
+	"\x05error\x18\x02 \x01(\tR\x05error\x128\n" +
+	"\x06reason\x18\x03 \x01(\x0e2 .codefly.warehouse.v0.RowRefusalR\x06reason\"\x15\n" +
 	"\x13CapabilitiesRequest\"\xa5\x03\n" +
 	"\x13BackendCapabilities\x12\x18\n" +
 	"\abackend\x18\x01 \x01(\tR\abackend\x12\x1d\n" +
@@ -2879,7 +2958,13 @@ const file_codefly_warehouse_v0_warehouse_proto_rawDesc = "" +
 	"\x1dWRITE_DISPOSITION_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18WRITE_DISPOSITION_APPEND\x10\x01\x12\x1e\n" +
 	"\x1aWRITE_DISPOSITION_TRUNCATE\x10\x02\x12\x1b\n" +
-	"\x17WRITE_DISPOSITION_EMPTY\x10\x032\xb3\n" +
+	"\x17WRITE_DISPOSITION_EMPTY\x10\x03*\x88\x01\n" +
+	"\n" +
+	"RowRefusal\x12\x1b\n" +
+	"\x17ROW_REFUSAL_UNSPECIFIED\x10\x00\x12\x1d\n" +
+	"\x19ROW_REFUSAL_INVALID_VALUE\x10\x01\x12\x1d\n" +
+	"\x19ROW_REFUSAL_ROW_TOO_LARGE\x10\x02\x12\x1f\n" +
+	"\x1bROW_REFUSAL_SCHEMA_MISMATCH\x10\x032\xb3\n" +
 	"\n" +
 	"\tWarehouse\x12R\n" +
 	"\x05Query\x12\".codefly.warehouse.v0.QueryRequest\x1a#.codefly.warehouse.v0.QueryResponse0\x01\x12H\n" +
@@ -2912,7 +2997,7 @@ func file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP() []byte {
 	return file_codefly_warehouse_v0_warehouse_proto_rawDescData
 }
 
-var file_codefly_warehouse_v0_warehouse_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
+var file_codefly_warehouse_v0_warehouse_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
 var file_codefly_warehouse_v0_warehouse_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
 var file_codefly_warehouse_v0_warehouse_proto_goTypes = []any{
 	(ColumnType)(0),              // 0: codefly.warehouse.v0.ColumnType
@@ -2920,118 +3005,120 @@ var file_codefly_warehouse_v0_warehouse_proto_goTypes = []any{
 	(TableKind)(0),               // 2: codefly.warehouse.v0.TableKind
 	(LoadFormat)(0),              // 3: codefly.warehouse.v0.LoadFormat
 	(WriteDisposition)(0),        // 4: codefly.warehouse.v0.WriteDisposition
-	(*Column)(nil),               // 5: codefly.warehouse.v0.Column
-	(*TableRef)(nil),             // 6: codefly.warehouse.v0.TableRef
-	(*JobStats)(nil),             // 7: codefly.warehouse.v0.JobStats
-	(*Job)(nil),                  // 8: codefly.warehouse.v0.Job
-	(*QueryParam)(nil),           // 9: codefly.warehouse.v0.QueryParam
-	(*QueryRequest)(nil),         // 10: codefly.warehouse.v0.QueryRequest
-	(*QueryResponse)(nil),        // 11: codefly.warehouse.v0.QueryResponse
-	(*QueryHeader)(nil),          // 12: codefly.warehouse.v0.QueryHeader
-	(*GetJobRequest)(nil),        // 13: codefly.warehouse.v0.GetJobRequest
-	(*CancelJobRequest)(nil),     // 14: codefly.warehouse.v0.CancelJobRequest
-	(*CancelJobResult)(nil),      // 15: codefly.warehouse.v0.CancelJobResult
-	(*ListDatasetsRequest)(nil),  // 16: codefly.warehouse.v0.ListDatasetsRequest
-	(*Dataset)(nil),              // 17: codefly.warehouse.v0.Dataset
-	(*ListDatasetsResult)(nil),   // 18: codefly.warehouse.v0.ListDatasetsResult
-	(*ListTablesRequest)(nil),    // 19: codefly.warehouse.v0.ListTablesRequest
-	(*TableInfo)(nil),            // 20: codefly.warehouse.v0.TableInfo
-	(*ListTablesResult)(nil),     // 21: codefly.warehouse.v0.ListTablesResult
-	(*GetTableRequest)(nil),      // 22: codefly.warehouse.v0.GetTableRequest
-	(*TableSchema)(nil),          // 23: codefly.warehouse.v0.TableSchema
-	(*CreateDatasetRequest)(nil), // 24: codefly.warehouse.v0.CreateDatasetRequest
-	(*DropDatasetRequest)(nil),   // 25: codefly.warehouse.v0.DropDatasetRequest
-	(*DropResult)(nil),           // 26: codefly.warehouse.v0.DropResult
-	(*CreateTableRequest)(nil),   // 27: codefly.warehouse.v0.CreateTableRequest
-	(*DropTableRequest)(nil),     // 28: codefly.warehouse.v0.DropTableRequest
-	(*LoadRequest)(nil),          // 29: codefly.warehouse.v0.LoadRequest
-	(*UnloadRequest)(nil),        // 30: codefly.warehouse.v0.UnloadRequest
-	(*InsertRowsRequest)(nil),    // 31: codefly.warehouse.v0.InsertRowsRequest
-	(*InsertHeader)(nil),         // 32: codefly.warehouse.v0.InsertHeader
-	(*InsertRowsResult)(nil),     // 33: codefly.warehouse.v0.InsertRowsResult
-	(*RowError)(nil),             // 34: codefly.warehouse.v0.RowError
-	(*CapabilitiesRequest)(nil),  // 35: codefly.warehouse.v0.CapabilitiesRequest
-	(*BackendCapabilities)(nil),  // 36: codefly.warehouse.v0.BackendCapabilities
-	(*NativeRequest)(nil),        // 37: codefly.warehouse.v0.NativeRequest
-	(*NativeResult)(nil),         // 38: codefly.warehouse.v0.NativeResult
-	nil,                          // 39: codefly.warehouse.v0.Dataset.LabelsEntry
-	nil,                          // 40: codefly.warehouse.v0.CreateDatasetRequest.LabelsEntry
-	nil,                          // 41: codefly.warehouse.v0.LoadRequest.OptionsEntry
-	nil,                          // 42: codefly.warehouse.v0.UnloadRequest.OptionsEntry
-	nil,                          // 43: codefly.warehouse.v0.NativeRequest.ParamsEntry
-	nil,                          // 44: codefly.warehouse.v0.NativeResult.ValuesEntry
+	(RowRefusal)(0),              // 5: codefly.warehouse.v0.RowRefusal
+	(*Column)(nil),               // 6: codefly.warehouse.v0.Column
+	(*TableRef)(nil),             // 7: codefly.warehouse.v0.TableRef
+	(*JobStats)(nil),             // 8: codefly.warehouse.v0.JobStats
+	(*Job)(nil),                  // 9: codefly.warehouse.v0.Job
+	(*QueryParam)(nil),           // 10: codefly.warehouse.v0.QueryParam
+	(*QueryRequest)(nil),         // 11: codefly.warehouse.v0.QueryRequest
+	(*QueryResponse)(nil),        // 12: codefly.warehouse.v0.QueryResponse
+	(*QueryHeader)(nil),          // 13: codefly.warehouse.v0.QueryHeader
+	(*GetJobRequest)(nil),        // 14: codefly.warehouse.v0.GetJobRequest
+	(*CancelJobRequest)(nil),     // 15: codefly.warehouse.v0.CancelJobRequest
+	(*CancelJobResult)(nil),      // 16: codefly.warehouse.v0.CancelJobResult
+	(*ListDatasetsRequest)(nil),  // 17: codefly.warehouse.v0.ListDatasetsRequest
+	(*Dataset)(nil),              // 18: codefly.warehouse.v0.Dataset
+	(*ListDatasetsResult)(nil),   // 19: codefly.warehouse.v0.ListDatasetsResult
+	(*ListTablesRequest)(nil),    // 20: codefly.warehouse.v0.ListTablesRequest
+	(*TableInfo)(nil),            // 21: codefly.warehouse.v0.TableInfo
+	(*ListTablesResult)(nil),     // 22: codefly.warehouse.v0.ListTablesResult
+	(*GetTableRequest)(nil),      // 23: codefly.warehouse.v0.GetTableRequest
+	(*TableSchema)(nil),          // 24: codefly.warehouse.v0.TableSchema
+	(*CreateDatasetRequest)(nil), // 25: codefly.warehouse.v0.CreateDatasetRequest
+	(*DropDatasetRequest)(nil),   // 26: codefly.warehouse.v0.DropDatasetRequest
+	(*DropResult)(nil),           // 27: codefly.warehouse.v0.DropResult
+	(*CreateTableRequest)(nil),   // 28: codefly.warehouse.v0.CreateTableRequest
+	(*DropTableRequest)(nil),     // 29: codefly.warehouse.v0.DropTableRequest
+	(*LoadRequest)(nil),          // 30: codefly.warehouse.v0.LoadRequest
+	(*UnloadRequest)(nil),        // 31: codefly.warehouse.v0.UnloadRequest
+	(*InsertRowsRequest)(nil),    // 32: codefly.warehouse.v0.InsertRowsRequest
+	(*InsertHeader)(nil),         // 33: codefly.warehouse.v0.InsertHeader
+	(*InsertRowsResult)(nil),     // 34: codefly.warehouse.v0.InsertRowsResult
+	(*RowError)(nil),             // 35: codefly.warehouse.v0.RowError
+	(*CapabilitiesRequest)(nil),  // 36: codefly.warehouse.v0.CapabilitiesRequest
+	(*BackendCapabilities)(nil),  // 37: codefly.warehouse.v0.BackendCapabilities
+	(*NativeRequest)(nil),        // 38: codefly.warehouse.v0.NativeRequest
+	(*NativeResult)(nil),         // 39: codefly.warehouse.v0.NativeResult
+	nil,                          // 40: codefly.warehouse.v0.Dataset.LabelsEntry
+	nil,                          // 41: codefly.warehouse.v0.CreateDatasetRequest.LabelsEntry
+	nil,                          // 42: codefly.warehouse.v0.LoadRequest.OptionsEntry
+	nil,                          // 43: codefly.warehouse.v0.UnloadRequest.OptionsEntry
+	nil,                          // 44: codefly.warehouse.v0.NativeRequest.ParamsEntry
+	nil,                          // 45: codefly.warehouse.v0.NativeResult.ValuesEntry
 }
 var file_codefly_warehouse_v0_warehouse_proto_depIdxs = []int32{
 	0,  // 0: codefly.warehouse.v0.Column.type:type_name -> codefly.warehouse.v0.ColumnType
-	5,  // 1: codefly.warehouse.v0.Column.fields:type_name -> codefly.warehouse.v0.Column
+	6,  // 1: codefly.warehouse.v0.Column.fields:type_name -> codefly.warehouse.v0.Column
 	1,  // 2: codefly.warehouse.v0.Job.state:type_name -> codefly.warehouse.v0.JobState
-	7,  // 3: codefly.warehouse.v0.Job.stats:type_name -> codefly.warehouse.v0.JobStats
+	8,  // 3: codefly.warehouse.v0.Job.stats:type_name -> codefly.warehouse.v0.JobStats
 	0,  // 4: codefly.warehouse.v0.QueryParam.type:type_name -> codefly.warehouse.v0.ColumnType
-	9,  // 5: codefly.warehouse.v0.QueryRequest.params:type_name -> codefly.warehouse.v0.QueryParam
-	12, // 6: codefly.warehouse.v0.QueryResponse.header:type_name -> codefly.warehouse.v0.QueryHeader
-	8,  // 7: codefly.warehouse.v0.QueryHeader.job:type_name -> codefly.warehouse.v0.Job
-	5,  // 8: codefly.warehouse.v0.QueryHeader.schema:type_name -> codefly.warehouse.v0.Column
-	39, // 9: codefly.warehouse.v0.Dataset.labels:type_name -> codefly.warehouse.v0.Dataset.LabelsEntry
-	17, // 10: codefly.warehouse.v0.ListDatasetsResult.datasets:type_name -> codefly.warehouse.v0.Dataset
-	6,  // 11: codefly.warehouse.v0.TableInfo.ref:type_name -> codefly.warehouse.v0.TableRef
+	10, // 5: codefly.warehouse.v0.QueryRequest.params:type_name -> codefly.warehouse.v0.QueryParam
+	13, // 6: codefly.warehouse.v0.QueryResponse.header:type_name -> codefly.warehouse.v0.QueryHeader
+	9,  // 7: codefly.warehouse.v0.QueryHeader.job:type_name -> codefly.warehouse.v0.Job
+	6,  // 8: codefly.warehouse.v0.QueryHeader.schema:type_name -> codefly.warehouse.v0.Column
+	40, // 9: codefly.warehouse.v0.Dataset.labels:type_name -> codefly.warehouse.v0.Dataset.LabelsEntry
+	18, // 10: codefly.warehouse.v0.ListDatasetsResult.datasets:type_name -> codefly.warehouse.v0.Dataset
+	7,  // 11: codefly.warehouse.v0.TableInfo.ref:type_name -> codefly.warehouse.v0.TableRef
 	2,  // 12: codefly.warehouse.v0.TableInfo.kind:type_name -> codefly.warehouse.v0.TableKind
-	20, // 13: codefly.warehouse.v0.ListTablesResult.tables:type_name -> codefly.warehouse.v0.TableInfo
-	6,  // 14: codefly.warehouse.v0.GetTableRequest.ref:type_name -> codefly.warehouse.v0.TableRef
-	20, // 15: codefly.warehouse.v0.TableSchema.info:type_name -> codefly.warehouse.v0.TableInfo
-	5,  // 16: codefly.warehouse.v0.TableSchema.columns:type_name -> codefly.warehouse.v0.Column
-	40, // 17: codefly.warehouse.v0.CreateDatasetRequest.labels:type_name -> codefly.warehouse.v0.CreateDatasetRequest.LabelsEntry
-	6,  // 18: codefly.warehouse.v0.CreateTableRequest.ref:type_name -> codefly.warehouse.v0.TableRef
-	5,  // 19: codefly.warehouse.v0.CreateTableRequest.columns:type_name -> codefly.warehouse.v0.Column
-	6,  // 20: codefly.warehouse.v0.DropTableRequest.ref:type_name -> codefly.warehouse.v0.TableRef
-	6,  // 21: codefly.warehouse.v0.LoadRequest.dest:type_name -> codefly.warehouse.v0.TableRef
+	21, // 13: codefly.warehouse.v0.ListTablesResult.tables:type_name -> codefly.warehouse.v0.TableInfo
+	7,  // 14: codefly.warehouse.v0.GetTableRequest.ref:type_name -> codefly.warehouse.v0.TableRef
+	21, // 15: codefly.warehouse.v0.TableSchema.info:type_name -> codefly.warehouse.v0.TableInfo
+	6,  // 16: codefly.warehouse.v0.TableSchema.columns:type_name -> codefly.warehouse.v0.Column
+	41, // 17: codefly.warehouse.v0.CreateDatasetRequest.labels:type_name -> codefly.warehouse.v0.CreateDatasetRequest.LabelsEntry
+	7,  // 18: codefly.warehouse.v0.CreateTableRequest.ref:type_name -> codefly.warehouse.v0.TableRef
+	6,  // 19: codefly.warehouse.v0.CreateTableRequest.columns:type_name -> codefly.warehouse.v0.Column
+	7,  // 20: codefly.warehouse.v0.DropTableRequest.ref:type_name -> codefly.warehouse.v0.TableRef
+	7,  // 21: codefly.warehouse.v0.LoadRequest.dest:type_name -> codefly.warehouse.v0.TableRef
 	3,  // 22: codefly.warehouse.v0.LoadRequest.format:type_name -> codefly.warehouse.v0.LoadFormat
 	4,  // 23: codefly.warehouse.v0.LoadRequest.write_disposition:type_name -> codefly.warehouse.v0.WriteDisposition
-	5,  // 24: codefly.warehouse.v0.LoadRequest.schema:type_name -> codefly.warehouse.v0.Column
-	41, // 25: codefly.warehouse.v0.LoadRequest.options:type_name -> codefly.warehouse.v0.LoadRequest.OptionsEntry
-	6,  // 26: codefly.warehouse.v0.UnloadRequest.table:type_name -> codefly.warehouse.v0.TableRef
+	6,  // 24: codefly.warehouse.v0.LoadRequest.schema:type_name -> codefly.warehouse.v0.Column
+	42, // 25: codefly.warehouse.v0.LoadRequest.options:type_name -> codefly.warehouse.v0.LoadRequest.OptionsEntry
+	7,  // 26: codefly.warehouse.v0.UnloadRequest.table:type_name -> codefly.warehouse.v0.TableRef
 	3,  // 27: codefly.warehouse.v0.UnloadRequest.format:type_name -> codefly.warehouse.v0.LoadFormat
-	42, // 28: codefly.warehouse.v0.UnloadRequest.options:type_name -> codefly.warehouse.v0.UnloadRequest.OptionsEntry
-	32, // 29: codefly.warehouse.v0.InsertRowsRequest.header:type_name -> codefly.warehouse.v0.InsertHeader
-	6,  // 30: codefly.warehouse.v0.InsertHeader.table:type_name -> codefly.warehouse.v0.TableRef
-	34, // 31: codefly.warehouse.v0.InsertRowsResult.errors:type_name -> codefly.warehouse.v0.RowError
-	3,  // 32: codefly.warehouse.v0.BackendCapabilities.load_formats:type_name -> codefly.warehouse.v0.LoadFormat
-	43, // 33: codefly.warehouse.v0.NativeRequest.params:type_name -> codefly.warehouse.v0.NativeRequest.ParamsEntry
-	44, // 34: codefly.warehouse.v0.NativeResult.values:type_name -> codefly.warehouse.v0.NativeResult.ValuesEntry
-	10, // 35: codefly.warehouse.v0.Warehouse.Query:input_type -> codefly.warehouse.v0.QueryRequest
-	13, // 36: codefly.warehouse.v0.Warehouse.GetJob:input_type -> codefly.warehouse.v0.GetJobRequest
-	14, // 37: codefly.warehouse.v0.Warehouse.CancelJob:input_type -> codefly.warehouse.v0.CancelJobRequest
-	16, // 38: codefly.warehouse.v0.Warehouse.ListDatasets:input_type -> codefly.warehouse.v0.ListDatasetsRequest
-	19, // 39: codefly.warehouse.v0.Warehouse.ListTables:input_type -> codefly.warehouse.v0.ListTablesRequest
-	22, // 40: codefly.warehouse.v0.Warehouse.GetTable:input_type -> codefly.warehouse.v0.GetTableRequest
-	24, // 41: codefly.warehouse.v0.Warehouse.CreateDataset:input_type -> codefly.warehouse.v0.CreateDatasetRequest
-	25, // 42: codefly.warehouse.v0.Warehouse.DropDataset:input_type -> codefly.warehouse.v0.DropDatasetRequest
-	27, // 43: codefly.warehouse.v0.Warehouse.CreateTable:input_type -> codefly.warehouse.v0.CreateTableRequest
-	28, // 44: codefly.warehouse.v0.Warehouse.DropTable:input_type -> codefly.warehouse.v0.DropTableRequest
-	29, // 45: codefly.warehouse.v0.Warehouse.Load:input_type -> codefly.warehouse.v0.LoadRequest
-	30, // 46: codefly.warehouse.v0.Warehouse.Unload:input_type -> codefly.warehouse.v0.UnloadRequest
-	31, // 47: codefly.warehouse.v0.Warehouse.InsertRows:input_type -> codefly.warehouse.v0.InsertRowsRequest
-	35, // 48: codefly.warehouse.v0.Warehouse.Capabilities:input_type -> codefly.warehouse.v0.CapabilitiesRequest
-	37, // 49: codefly.warehouse.v0.Warehouse.Native:input_type -> codefly.warehouse.v0.NativeRequest
-	11, // 50: codefly.warehouse.v0.Warehouse.Query:output_type -> codefly.warehouse.v0.QueryResponse
-	8,  // 51: codefly.warehouse.v0.Warehouse.GetJob:output_type -> codefly.warehouse.v0.Job
-	15, // 52: codefly.warehouse.v0.Warehouse.CancelJob:output_type -> codefly.warehouse.v0.CancelJobResult
-	18, // 53: codefly.warehouse.v0.Warehouse.ListDatasets:output_type -> codefly.warehouse.v0.ListDatasetsResult
-	21, // 54: codefly.warehouse.v0.Warehouse.ListTables:output_type -> codefly.warehouse.v0.ListTablesResult
-	23, // 55: codefly.warehouse.v0.Warehouse.GetTable:output_type -> codefly.warehouse.v0.TableSchema
-	17, // 56: codefly.warehouse.v0.Warehouse.CreateDataset:output_type -> codefly.warehouse.v0.Dataset
-	26, // 57: codefly.warehouse.v0.Warehouse.DropDataset:output_type -> codefly.warehouse.v0.DropResult
-	23, // 58: codefly.warehouse.v0.Warehouse.CreateTable:output_type -> codefly.warehouse.v0.TableSchema
-	26, // 59: codefly.warehouse.v0.Warehouse.DropTable:output_type -> codefly.warehouse.v0.DropResult
-	8,  // 60: codefly.warehouse.v0.Warehouse.Load:output_type -> codefly.warehouse.v0.Job
-	8,  // 61: codefly.warehouse.v0.Warehouse.Unload:output_type -> codefly.warehouse.v0.Job
-	33, // 62: codefly.warehouse.v0.Warehouse.InsertRows:output_type -> codefly.warehouse.v0.InsertRowsResult
-	36, // 63: codefly.warehouse.v0.Warehouse.Capabilities:output_type -> codefly.warehouse.v0.BackendCapabilities
-	38, // 64: codefly.warehouse.v0.Warehouse.Native:output_type -> codefly.warehouse.v0.NativeResult
-	50, // [50:65] is the sub-list for method output_type
-	35, // [35:50] is the sub-list for method input_type
-	35, // [35:35] is the sub-list for extension type_name
-	35, // [35:35] is the sub-list for extension extendee
-	0,  // [0:35] is the sub-list for field type_name
+	43, // 28: codefly.warehouse.v0.UnloadRequest.options:type_name -> codefly.warehouse.v0.UnloadRequest.OptionsEntry
+	33, // 29: codefly.warehouse.v0.InsertRowsRequest.header:type_name -> codefly.warehouse.v0.InsertHeader
+	7,  // 30: codefly.warehouse.v0.InsertHeader.table:type_name -> codefly.warehouse.v0.TableRef
+	35, // 31: codefly.warehouse.v0.InsertRowsResult.errors:type_name -> codefly.warehouse.v0.RowError
+	5,  // 32: codefly.warehouse.v0.RowError.reason:type_name -> codefly.warehouse.v0.RowRefusal
+	3,  // 33: codefly.warehouse.v0.BackendCapabilities.load_formats:type_name -> codefly.warehouse.v0.LoadFormat
+	44, // 34: codefly.warehouse.v0.NativeRequest.params:type_name -> codefly.warehouse.v0.NativeRequest.ParamsEntry
+	45, // 35: codefly.warehouse.v0.NativeResult.values:type_name -> codefly.warehouse.v0.NativeResult.ValuesEntry
+	11, // 36: codefly.warehouse.v0.Warehouse.Query:input_type -> codefly.warehouse.v0.QueryRequest
+	14, // 37: codefly.warehouse.v0.Warehouse.GetJob:input_type -> codefly.warehouse.v0.GetJobRequest
+	15, // 38: codefly.warehouse.v0.Warehouse.CancelJob:input_type -> codefly.warehouse.v0.CancelJobRequest
+	17, // 39: codefly.warehouse.v0.Warehouse.ListDatasets:input_type -> codefly.warehouse.v0.ListDatasetsRequest
+	20, // 40: codefly.warehouse.v0.Warehouse.ListTables:input_type -> codefly.warehouse.v0.ListTablesRequest
+	23, // 41: codefly.warehouse.v0.Warehouse.GetTable:input_type -> codefly.warehouse.v0.GetTableRequest
+	25, // 42: codefly.warehouse.v0.Warehouse.CreateDataset:input_type -> codefly.warehouse.v0.CreateDatasetRequest
+	26, // 43: codefly.warehouse.v0.Warehouse.DropDataset:input_type -> codefly.warehouse.v0.DropDatasetRequest
+	28, // 44: codefly.warehouse.v0.Warehouse.CreateTable:input_type -> codefly.warehouse.v0.CreateTableRequest
+	29, // 45: codefly.warehouse.v0.Warehouse.DropTable:input_type -> codefly.warehouse.v0.DropTableRequest
+	30, // 46: codefly.warehouse.v0.Warehouse.Load:input_type -> codefly.warehouse.v0.LoadRequest
+	31, // 47: codefly.warehouse.v0.Warehouse.Unload:input_type -> codefly.warehouse.v0.UnloadRequest
+	32, // 48: codefly.warehouse.v0.Warehouse.InsertRows:input_type -> codefly.warehouse.v0.InsertRowsRequest
+	36, // 49: codefly.warehouse.v0.Warehouse.Capabilities:input_type -> codefly.warehouse.v0.CapabilitiesRequest
+	38, // 50: codefly.warehouse.v0.Warehouse.Native:input_type -> codefly.warehouse.v0.NativeRequest
+	12, // 51: codefly.warehouse.v0.Warehouse.Query:output_type -> codefly.warehouse.v0.QueryResponse
+	9,  // 52: codefly.warehouse.v0.Warehouse.GetJob:output_type -> codefly.warehouse.v0.Job
+	16, // 53: codefly.warehouse.v0.Warehouse.CancelJob:output_type -> codefly.warehouse.v0.CancelJobResult
+	19, // 54: codefly.warehouse.v0.Warehouse.ListDatasets:output_type -> codefly.warehouse.v0.ListDatasetsResult
+	22, // 55: codefly.warehouse.v0.Warehouse.ListTables:output_type -> codefly.warehouse.v0.ListTablesResult
+	24, // 56: codefly.warehouse.v0.Warehouse.GetTable:output_type -> codefly.warehouse.v0.TableSchema
+	18, // 57: codefly.warehouse.v0.Warehouse.CreateDataset:output_type -> codefly.warehouse.v0.Dataset
+	27, // 58: codefly.warehouse.v0.Warehouse.DropDataset:output_type -> codefly.warehouse.v0.DropResult
+	24, // 59: codefly.warehouse.v0.Warehouse.CreateTable:output_type -> codefly.warehouse.v0.TableSchema
+	27, // 60: codefly.warehouse.v0.Warehouse.DropTable:output_type -> codefly.warehouse.v0.DropResult
+	9,  // 61: codefly.warehouse.v0.Warehouse.Load:output_type -> codefly.warehouse.v0.Job
+	9,  // 62: codefly.warehouse.v0.Warehouse.Unload:output_type -> codefly.warehouse.v0.Job
+	34, // 63: codefly.warehouse.v0.Warehouse.InsertRows:output_type -> codefly.warehouse.v0.InsertRowsResult
+	37, // 64: codefly.warehouse.v0.Warehouse.Capabilities:output_type -> codefly.warehouse.v0.BackendCapabilities
+	39, // 65: codefly.warehouse.v0.Warehouse.Native:output_type -> codefly.warehouse.v0.NativeResult
+	51, // [51:66] is the sub-list for method output_type
+	36, // [36:51] is the sub-list for method input_type
+	36, // [36:36] is the sub-list for extension type_name
+	36, // [36:36] is the sub-list for extension extendee
+	0,  // [0:36] is the sub-list for field type_name
 }
 
 func init() { file_codefly_warehouse_v0_warehouse_proto_init() }
@@ -3056,7 +3143,7 @@ func file_codefly_warehouse_v0_warehouse_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_codefly_warehouse_v0_warehouse_proto_rawDesc), len(file_codefly_warehouse_v0_warehouse_proto_rawDesc)),
-			NumEnums:      5,
+			NumEnums:      6,
 			NumMessages:   40,
 			NumExtensions: 0,
 			NumServices:   1,

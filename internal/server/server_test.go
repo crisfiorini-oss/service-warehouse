@@ -20,9 +20,15 @@ import (
 // mem backend and returns a connected client.
 func dial(t *testing.T) whv0.WarehouseClient {
 	t.Helper()
+	return dialBackend(t, mem.New(backend.Config{}))
+}
+
+// dialBackend is dial over any backend.
+func dialBackend(t *testing.T, be backend.Backend) whv0.WarehouseClient {
+	t.Helper()
 	lis := bufconn.Listen(1 << 20)
 	srv := grpc.NewServer()
-	whv0.RegisterWarehouseServer(srv, New(mem.New(backend.Config{})))
+	whv0.RegisterWarehouseServer(srv, New(be))
 	go func() { _ = srv.Serve(lis) }()
 	t.Cleanup(srv.Stop)
 
@@ -72,4 +78,69 @@ func TestServerCapabilities(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "mem", caps.GetBackend())
 	require.True(t, caps.GetDdl())
+}
+
+// refusingBackend is mem with an InsertRows that refuses one row for each
+// portable reason, so the wire mapping of RowError is exercised without a
+// warehouse.
+type refusingBackend struct{ *mem.Backend }
+
+func (refusingBackend) InsertRows(_ context.Context, _ backend.TableRef, _ []byte, batches backend.BatchReader) (*backend.InsertResult, error) {
+	for {
+		if _, err := batches.Next(); err != nil {
+			break
+		}
+	}
+	return &backend.InsertResult{
+		RowsInserted: 1,
+		Errors: []backend.RowError{
+			{RowIndex: 0, Error: "no reason given", Reason: backend.RefusalUnspecified},
+			{RowIndex: 1, Error: "bad value", Reason: backend.RefusalInvalidValue},
+			{RowIndex: 2, Error: "too big", Reason: backend.RefusalRowTooLarge},
+			{RowIndex: 3, Error: "table differs", Reason: backend.RefusalSchemaMismatch},
+			{RowIndex: 4, Error: "a reason this server was never taught", Reason: backend.RowRefusal(99)},
+		},
+	}, nil
+}
+
+func TestServerInsertRowsCarriesPerRowRefusalReasons(t *testing.T) {
+	ctx := context.Background()
+	c := dialBackend(t, refusingBackend{mem.New(backend.Config{})})
+
+	stream, err := c.InsertRows(ctx)
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(&whv0.InsertRowsRequest{Kind: &whv0.InsertRowsRequest_Header{
+		Header: &whv0.InsertHeader{Table: &whv0.TableRef{Dataset: "d", Table: "t"}},
+	}}))
+	require.NoError(t, stream.Send(&whv0.InsertRowsRequest{Kind: &whv0.InsertRowsRequest_ArrowBatch{ArrowBatch: []byte("batch")}}))
+	res, err := stream.CloseAndRecv()
+	require.NoError(t, err)
+
+	require.EqualValues(t, 1, res.GetRowsInserted())
+	got := make([]whv0.RowRefusal, 0, len(res.GetErrors()))
+	for i, e := range res.GetErrors() {
+		require.EqualValues(t, i, e.GetRowIndex())
+		got = append(got, e.GetReason())
+	}
+	require.Equal(t, []whv0.RowRefusal{
+		whv0.RowRefusal_ROW_REFUSAL_UNSPECIFIED,
+		whv0.RowRefusal_ROW_REFUSAL_INVALID_VALUE,
+		whv0.RowRefusal_ROW_REFUSAL_ROW_TOO_LARGE,
+		whv0.RowRefusal_ROW_REFUSAL_SCHEMA_MISMATCH,
+		// A reason the server does not know is left unspecified, never guessed.
+		whv0.RowRefusal_ROW_REFUSAL_UNSPECIFIED,
+	}, got)
+	require.Equal(t, "bad value", res.GetErrors()[1].GetError())
+}
+
+func TestServerInsertRowsUnimplementedOnMem(t *testing.T) {
+	ctx := context.Background()
+	c := dial(t)
+	stream, err := c.InsertRows(ctx)
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(&whv0.InsertRowsRequest{Kind: &whv0.InsertRowsRequest_Header{
+		Header: &whv0.InsertHeader{Table: &whv0.TableRef{Dataset: "d", Table: "t"}},
+	}}))
+	_, err = stream.CloseAndRecv()
+	require.Equal(t, codes.Unimplemented, status.Code(err))
 }

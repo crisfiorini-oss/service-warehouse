@@ -245,6 +245,26 @@ var protoToWriteDisp = map[whv0.WriteDisposition]backend.WriteDisposition{
 	whv0.WriteDisposition_WRITE_DISPOSITION_EMPTY:       backend.WriteEmpty,
 }
 
+// --- RowError ---
+
+var rowRefusalToProto = map[backend.RowRefusal]whv0.RowRefusal{
+	backend.RefusalUnspecified:    whv0.RowRefusal_ROW_REFUSAL_UNSPECIFIED,
+	backend.RefusalInvalidValue:   whv0.RowRefusal_ROW_REFUSAL_INVALID_VALUE,
+	backend.RefusalRowTooLarge:    whv0.RowRefusal_ROW_REFUSAL_ROW_TOO_LARGE,
+	backend.RefusalSchemaMismatch: whv0.RowRefusal_ROW_REFUSAL_SCHEMA_MISMATCH,
+}
+
+// rowErrorOut maps a refusal a backend reported to the wire. A reason this
+// server does not know leaves the refusal unspecified: the row is still
+// refused, and nothing false is said about why.
+func rowErrorOut(e backend.RowError) *whv0.RowError {
+	return &whv0.RowError{
+		RowIndex: e.RowIndex,
+		Error:    e.Error,
+		Reason:   rowRefusalToProto[e.Reason],
+	}
+}
+
 // --- Capabilities ---
 
 func capabilitiesOut(c backend.Capabilities) *whv0.BackendCapabilities {

@@ -311,11 +311,37 @@ message InsertRowsResult {
   repeated RowError errors = 2;
 }
 
+// RowRefusal is the portable reason a backend permanently refused one row of an
+// InsertRows. It answers what a caller may do next: retrying the same row against
+// the same table gets the same answer, unless the reason says the table, not the
+// row, is what disagrees. A failure that says nothing against the row (a
+// throttle, a quota, a timeout, a dead backend) is never a row refusal; it fails
+// the call with a status code instead.
+enum RowRefusal {
+  // The backend refused the row without saying which of the reasons below
+  // applies, or none of them does. Treat it as a refusal of the row.
+  ROW_REFUSAL_UNSPECIFIED = 0;
+  // A value cannot be stored in its column: the wrong type, out of range,
+  // malformed, not valid text, or null in a column that is required.
+  ROW_REFUSAL_INVALID_VALUE = 1;
+  // The row alone is bigger than the backend accepts for one row.
+  ROW_REFUSAL_ROW_TOO_LARGE = 2;
+  // The row's columns disagree with the table's: a column the table does not
+  // have, or a required column the row does not carry. The table would have to
+  // change for the same row to be accepted, so a caller must not conclude the
+  // row itself is bad.
+  ROW_REFUSAL_SCHEMA_MISMATCH = 3;
+}
+
 // RowError reports a per-row rejection — streaming insert is not atomic, so
-// partial success is normal and surfaced per offset.
+// partial success is normal and surfaced per offset. row_index counts rows from
+// 0 across every batch of the call, in the order they were sent. error is a
+// description written by this server, never a backend's own text; branch on
+// reason.
 message RowError {
   int64 row_index = 1;
   string error = 2;
+  RowRefusal reason = 3;
 }
 
 message CapabilitiesRequest {}

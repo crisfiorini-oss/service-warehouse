@@ -62,3 +62,13 @@ func TestCapabilities(t *testing.T) {
 	require.True(t, caps.DDL)
 	require.False(t, caps.ArrowResults)
 }
+
+// mem has no engine to ingest rows, so it says so instead of accepting rows it
+// would drop, and it never reports a per-row refusal it did not make.
+func TestInsertRowsUnsupported(t *testing.T) {
+	b := New(backend.Config{})
+	res, err := b.InsertRows(context.Background(), backend.TableRef{Dataset: "d", Table: "t"}, nil, nil)
+	require.Nil(t, res)
+	require.True(t, serr.Is(err, serr.Unsupported))
+	require.False(t, b.Capabilities().StreamingInsert)
+}

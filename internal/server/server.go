@@ -212,7 +212,7 @@ func (s *Server) InsertRows(stream whv0.Warehouse_InsertRowsServer) error {
 	}
 	out := &whv0.InsertRowsResult{RowsInserted: res.RowsInserted}
 	for _, e := range res.Errors {
-		out.Errors = append(out.Errors, &whv0.RowError{RowIndex: e.RowIndex, Error: e.Error})
+		out.Errors = append(out.Errors, rowErrorOut(e))
 	}
 	return stream.SendAndClose(out)
 }
