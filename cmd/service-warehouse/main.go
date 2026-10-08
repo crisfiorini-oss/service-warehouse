@@ -26,6 +26,7 @@ import (
 
 	// Backends register themselves via init(); importing them compiles each into
 	// the single binary and makes its kind selectable by config.
+	_ "github.com/codefly-dev/service-warehouse/internal/backend/bigquery"
 	_ "github.com/codefly-dev/service-warehouse/internal/backend/duckdb"
 	_ "github.com/codefly-dev/service-warehouse/internal/backend/mem"
 )
