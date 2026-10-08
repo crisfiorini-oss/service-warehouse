@@ -7,6 +7,7 @@ require (
 	cloud.google.com/go/bigquery v1.85.0
 	github.com/apache/arrow-go/v18 v18.8.0
 	github.com/codefly-dev/core v0.18.1
+	github.com/google/flatbuffers v25.12.19+incompatible
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.23.0
@@ -74,7 +75,6 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/gofrs/flock v0.13.1 // indirect
-	github.com/google/flatbuffers v25.12.19+incompatible // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/google/go-github/v89 v89.0.0 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect

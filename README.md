@@ -140,8 +140,9 @@ allows before they are used.
 **`InsertRows`.** Arrow comes in the same framing: the header's schema message
 and one RecordBatch message per batch, or, with no schema in the header, a first
 message that is a schema message followed by its batch. A message that is not
-Arrow (cut short, empty, a second schema where a batch belongs) or that states a
-size over a limit (metadata over 1 MiB, a body over `SWH_MAX_ARROW_MESSAGE_BYTES`)
+Arrow (cut short, empty, a second schema where a batch belongs), that states a
+size over a limit (metadata over 1 MiB, a body over `SWH_MAX_ARROW_MESSAGE_BYTES`),
+or whose schema states more fields, children or metadata than its bytes can hold,
 is `InvalidArgument`. Rows are sent as streaming inserts of at most 500 rows and
 about 8 MiB. The call is not atomic: BigQuery is asked to skip invalid rows, so
 valid rows are stored and refused ones come back as `errors`, each with its

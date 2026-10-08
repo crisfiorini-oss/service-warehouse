@@ -8,6 +8,13 @@
 // The package is backend-neutral: a backend that produces Arrow records uses
 // Encoder, and a backend that ingests them uses NewReader, so no backend
 // re-derives the framing.
+//
+// The bytes NewReader reads come from a client, so the sizes, counts and offsets
+// they state are not taken on trust. NewReader applies size limits to every
+// message. A schema message's stated counts and offsets are also checked against
+// its own bytes before the decoder sizes anything from them: a STOPGAP, labelled
+// as one, in schemacheck.go, which can be removed if the decoder validates its own
+// input.
 package arrowipc
 
 import (
@@ -204,6 +211,9 @@ func WithMaxMessageBytes(n int64) Option {
 // reader has, so every reader is built here, from a message reader that does, and
 // nowhere else (a test holds the repository to that).
 //
+// A schema message is also walked before it is decoded, and refused if its stated
+// counts and offsets exceed its own bytes: a stopgap, see schemacheck.go.
+//
 // It reads the schema before it returns, so a first message that is not one is
 // reported here.
 func NewReader(schema []byte, src Source, opts ...Option) (*Reader, error) {
@@ -213,8 +223,12 @@ func NewReader(schema []byte, src Source, opts ...Option) (*Reader, error) {
 	}
 	w := &watchedSource{src: src}
 	mem := memory.DefaultAllocator
+	stream, err := vetFirstMessage(&messageStream{pending: bytes.TrimSuffix(schema, endOfStream[:]), src: w})
+	if err != nil {
+		return nil, w.classify(err)
+	}
 	messages := ipc.NewMessageReader(
-		&messageStream{pending: bytes.TrimSuffix(schema, endOfStream[:]), src: w},
+		stream,
 		ipc.WithAllocator(mem),
 		ipc.WithMetadataSizeLimit(maxMetadataBytes),
 		ipc.WithBodySizeLimit(cfg.maxMessageBytes),
@@ -273,6 +287,9 @@ func (w *watchedSource) Next() ([]byte, error) {
 func (w *watchedSource) classify(err error) error {
 	if w.err != nil {
 		return w.err
+	}
+	if errors.Is(err, ErrMalformed) {
+		return err
 	}
 	return fmt.Errorf("%w: %w", ErrMalformed, err)
 }

@@ -13,7 +13,6 @@ import (
 // not be able to choose.
 func allocated(f func()) uint64 {
 	var before, after runtime.MemStats
-	runtime.GC()
 	runtime.ReadMemStats(&before)
 	f()
 	runtime.ReadMemStats(&after)
