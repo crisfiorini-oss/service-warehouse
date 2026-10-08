@@ -181,7 +181,7 @@ BigQuery has no equivalent of (map, duration, dictionary) is `Unimplemented`.
 | `SWH_QUERY_TIMEOUT` | `0` | per-query timeout (Go duration; 0 = backend default); a request may only shorten it |
 | `SWH_AUTH_TOKEN` | — | shared secret every caller must present; required unless `SWH_ALLOW_ANONYMOUS=true` |
 | `SWH_ALLOW_ANONYMOUS` | `false` | `true` accepts callers with no token; refused together with `SWH_AUTH_TOKEN` |
-| `SWH_MAX_ARROW_MESSAGE_BYTES` | `67108864` (64 MiB) | largest body of one Arrow IPC message a client may send (`InsertRows`); a larger one is `InvalidArgument`, refused before any of it is allocated. Must be positive. grpc-go's own 4 MiB receive limit is checked first |
+| `SWH_MAX_ARROW_MESSAGE_BYTES` | `4194304` (4 MiB) | largest body of one Arrow IPC message a client may send (`InsertRows`); a larger one is `InvalidArgument`, refused before any of it is allocated. Must be positive. The default is grpc-go's own receive limit, which a message cannot exceed anyway: raising this above it has no effect until the gRPC server's limit is raised too |
 
 The `bigquery` backend reads `SWH_DATABASE` (required), `SWH_DATASET`,
 `SWH_LOCATION`, `SWH_CREDENTIALS_FILE`, `SWH_MAX_QUERY_BYTES`,

@@ -174,8 +174,11 @@ type Reader struct {
 
 const (
 	// DefaultMaxMessageBytes is the largest message body a reader accepts when
-	// the caller names no limit: what SWH_MAX_ARROW_MESSAGE_BYTES defaults to.
-	DefaultMaxMessageBytes int64 = 64 << 20
+	// the caller names no limit: what SWH_MAX_ARROW_MESSAGE_BYTES defaults to. It
+	// is grpc-go's default receive limit, because a message arrives inside one
+	// gRPC message and cannot be larger than the one carrying it, so a larger
+	// bound refuses nothing a client can send.
+	DefaultMaxMessageBytes int64 = 4 << 20
 
 	// maxMetadataBytes is the largest message metadata a reader accepts. The
 	// metadata is a schema or a batch's buffer layout, a few bytes per column; a

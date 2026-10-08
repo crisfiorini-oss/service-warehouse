@@ -159,7 +159,7 @@ func TestDefaultsAndParsing(t *testing.T) {
 	require.Equal(t, int64(4096), cfg.Backend.MaxQueryBytes)
 	require.Equal(t, 90*time.Second, cfg.Backend.QueryTimeout)
 	require.Equal(t, 5439, cfg.Backend.Port)
-	require.Equal(t, int64(64<<20), cfg.Backend.MaxArrowMessageBytes, "the Arrow message bound is on by default")
+	require.Equal(t, int64(4<<20), cfg.Backend.MaxArrowMessageBytes, "the Arrow message bound is on by default")
 }
 
 func TestArrowMessageBoundIsConfigurable(t *testing.T) {

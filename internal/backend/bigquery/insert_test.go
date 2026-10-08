@@ -283,7 +283,10 @@ func TestInsertRowsRefusesARowTooLargeToSendAndStoresTheOthers(t *testing.T) {
 	f := newFake(t)
 	f.handle("GET /projects/test-project/datasets/d/tables/t", 200, eventTable)
 	f.handle("POST "+insertPath, 200, map[string]any{})
-	b := f.open(t, backend.Config{})
+	// A batch this size is a message of more than the default bound, which the
+	// gRPC server's receive limit would refuse first; the bound is raised so the
+	// backend's own row limit is what is under test.
+	b := f.open(t, backend.Config{MaxArrowMessageBytes: 64 << 20})
 
 	huge := strings.Repeat("x", maxRequestBytes)
 	header, batch := eventBatch(t, []int64{1, 2, 3}, []string{"a", huge, "c"})
@@ -307,7 +310,10 @@ func TestInsertRowsSplitsARequestThatWouldPassTheByteLimit(t *testing.T) {
 	f := newFake(t)
 	f.handle("GET /projects/test-project/datasets/d/tables/t", 200, eventTable)
 	f.handle("POST "+insertPath, 200, map[string]any{})
-	b := f.open(t, backend.Config{})
+	// A batch this size is a message of more than the default bound, which the
+	// gRPC server's receive limit would refuse first; the bound is raised so the
+	// backend's own row limit is what is under test.
+	b := f.open(t, backend.Config{MaxArrowMessageBytes: 64 << 20})
 
 	big := strings.Repeat("x", maxRequestBytes/2)
 	header, batch := eventBatch(t, []int64{1, 2, 3}, []string{big, big, big})
