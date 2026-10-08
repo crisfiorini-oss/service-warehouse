@@ -17,6 +17,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/stretchr/testify/require"
 
+	"github.com/codefly-dev/service-warehouse/internal/arrowipc"
 	"github.com/codefly-dev/service-warehouse/internal/backend"
 	"github.com/codefly-dev/service-warehouse/internal/serr"
 )
@@ -159,12 +160,15 @@ func TestAgainstRealBigQuery(t *testing.T) {
 		}
 		rec := builder.NewRecordBatch()
 		defer rec.Release()
-		fr, err := newFramer(schema, mem)
+		header, err := arrowipc.SchemaMessage(schema)
 		require.NoError(t, err)
-		batch, err := fr.batch(rec)
+		enc, err := arrowipc.NewEncoder(schema)
+		require.NoError(t, err)
+		defer enc.Close()
+		batch, err := enc.Encode(rec)
 		require.NoError(t, err)
 
-		res, err := b.InsertRows(ctx, ref, fr.schemaMsg, &sliceReader{payloads: [][]byte{batch}})
+		res, err := b.InsertRows(ctx, ref, header, &sliceReader{payloads: [][]byte{batch}})
 		require.NoError(t, err)
 		require.EqualValues(t, 2, res.RowsInserted)
 		require.Len(t, res.Errors, 1)
@@ -179,17 +183,20 @@ func TestAgainstRealBigQuery(t *testing.T) {
 		mb.Field(1).(*array.StringBuilder).Append("x")
 		mrec := mb.NewRecordBatch()
 		defer mrec.Release()
-		mfr, err := newFramer(mismatch, mem)
+		mheader, err := arrowipc.SchemaMessage(mismatch)
 		require.NoError(t, err)
-		mbatch, err := mfr.batch(mrec)
+		menc, err := arrowipc.NewEncoder(mismatch)
 		require.NoError(t, err)
-		res, err = b.InsertRows(ctx, ref, mfr.schemaMsg, &sliceReader{payloads: [][]byte{mbatch}})
+		defer menc.Close()
+		mbatch, err := menc.Encode(mrec)
+		require.NoError(t, err)
+		res, err = b.InsertRows(ctx, ref, mheader, &sliceReader{payloads: [][]byte{mbatch}})
 		require.NoError(t, err)
 		require.Zero(t, res.RowsInserted)
 		require.Len(t, res.Errors, 1)
 		require.Equal(t, backend.RefusalSchemaMismatch, res.Errors[0].Reason)
 
-		_, err = b.InsertRows(ctx, backend.TableRef{Dataset: dataset, Table: "nope"}, fr.schemaMsg, &sliceReader{payloads: [][]byte{batch}})
+		_, err = b.InsertRows(ctx, backend.TableRef{Dataset: dataset, Table: "nope"}, header, &sliceReader{payloads: [][]byte{batch}})
 		require.True(t, serr.Is(err, serr.NotFound), "got %v", err)
 
 		// Streamed rows become visible to queries within moments, not instantly.

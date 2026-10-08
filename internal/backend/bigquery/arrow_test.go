@@ -2,7 +2,6 @@ package bigquery
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"math"
 	"math/big"
@@ -181,87 +180,6 @@ func TestResultEncoderRefusesAValueOfTheWrongType(t *testing.T) {
 	err = enc.add([]bq.Value{"not an int"})
 	require.True(t, serr.Is(err, serr.Internal))
 	require.Error(t, enc.add([]bq.Value{}), "a row with too few values")
-}
-
-func TestFramingIsTheSchemaMessageThenEachBatchMessage(t *testing.T) {
-	schema := arrow.NewSchema([]arrow.Field{{Name: "id", Type: arrow.PrimitiveTypes.Int64}}, nil)
-	mem := memory.NewGoAllocator()
-	fr, err := newFramer(schema, mem)
-	require.NoError(t, err)
-	require.True(t, carriesSchema(fr.schemaMsg))
-	require.False(t, bytes.HasSuffix(fr.schemaMsg, eos), "the schema message is not terminated")
-
-	build := func(vals ...int64) []byte {
-		b := array.NewRecordBuilder(mem, schema)
-		defer b.Release()
-		for _, v := range vals {
-			b.Field(0).(*array.Int64Builder).Append(v)
-		}
-		rec := b.NewRecordBatch()
-		defer rec.Release()
-		out, err := fr.batch(rec)
-		require.NoError(t, err)
-		return out
-	}
-	first, second := build(1, 2), build(3)
-	require.False(t, carriesSchema(first), "a batch does not repeat the schema")
-	require.False(t, carriesSchema(second))
-	require.False(t, bytes.HasPrefix(second, fr.schemaMsg))
-
-	// The schema and the batches together are one valid Arrow IPC stream, which
-	// is what lets a client hand them to any Arrow reader.
-	stream := io.MultiReader(bytes.NewReader(fr.schemaMsg), bytes.NewReader(first), bytes.NewReader(second), bytes.NewReader(eos))
-	reader, err := ipc.NewReader(stream)
-	require.NoError(t, err)
-	defer reader.Release()
-	var seen []int64
-	for reader.Next() {
-		col := reader.RecordBatch().Column(0).(*array.Int64)
-		for i := 0; i < col.Len(); i++ {
-			seen = append(seen, col.Value(i))
-		}
-	}
-	require.NoError(t, reader.Err())
-	require.Equal(t, []int64{1, 2, 3}, seen)
-}
-
-func TestBatchStreamReadsHeaderSchemaWithBatchesAndSelfDescribingStreams(t *testing.T) {
-	header, batch := eventBatch(t, []int64{1, 2}, []string{"a", "b"})
-
-	read := func(header []byte, payloads ...[]byte) (rows int64, err error) {
-		s, err := newBatchStream(header, &sliceReader{payloads: payloads})
-		if err != nil {
-			return 0, err
-		}
-		defer s.close()
-		for {
-			rec, err := s.next()
-			if errors.Is(err, io.EOF) {
-				return rows, nil
-			}
-			if err != nil {
-				return rows, err
-			}
-			rows += rec.NumRows()
-			rec.Release()
-		}
-	}
-
-	n, err := read(header, batch, batch)
-	require.NoError(t, err)
-	require.EqualValues(t, 4, n)
-
-	n, err = read(nil, append(append([]byte{}, header...), batch...), batch[:0:0])
-	require.Error(t, err, "an empty payload is not a batch")
-	_ = n
-
-	n, err = read(nil, append(append(append([]byte{}, header...), batch...), eos...))
-	require.NoError(t, err)
-	require.EqualValues(t, 2, n)
-
-	n, err = read(header)
-	require.NoError(t, err)
-	require.Zero(t, n, "no batches is no rows")
 }
 
 func TestJSONValuesOfTheCellsAStreamingInsertSends(t *testing.T) {

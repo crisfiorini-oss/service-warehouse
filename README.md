@@ -138,11 +138,13 @@ time); more than one is `Unimplemented`. Names are checked against what BigQuery
 allows before they are used.
 
 **`InsertRows`.** Arrow comes in the same framing: the header's schema message
-and one RecordBatch message per batch, or batches that each carry their own
-schema. Rows are sent as streaming inserts of at most 500 rows and about 8 MiB.
-The call is not atomic: BigQuery is asked to skip invalid rows, so valid rows are
-stored and refused ones come back as `errors`, each with its `row_index` (counted
-from 0 across every batch of the call) and a `reason`:
+and one RecordBatch message per batch, or, with no schema in the header, a first
+message that is a schema message followed by its batch. A message that is not
+Arrow (cut short, empty, a second schema where a batch belongs) is
+`InvalidArgument`. Rows are sent as streaming inserts of at most 500 rows and
+about 8 MiB. The call is not atomic: BigQuery is asked to skip invalid rows, so
+valid rows are stored and refused ones come back as `errors`, each with its
+`row_index` (counted from 0 across every batch of the call) and a `reason`:
 
 | `RowRefusal` | meaning | set by `bigquery` when |
 |--------------|---------|------------------------|
@@ -461,6 +463,7 @@ proto/codefly/warehouse/v0/   the uniform API
 proto/buf.{yaml,gen.yaml}     buf config, read by the proto companion
 gen/                          generated gRPC stubs
 internal/backend/             Backend interface + mem, duckdb, bigquery (+ more cloud backends)
+internal/arrowipc/            the Arrow IPC framing every backend shares (schema message, batch messages)
 internal/server/              gRPC Warehouse implementation + proto↔backend mapping
 internal/config/              env configuration
 internal/serr/                normalized error model

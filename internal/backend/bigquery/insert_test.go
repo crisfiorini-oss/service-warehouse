@@ -12,6 +12,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/stretchr/testify/require"
 
+	"github.com/codefly-dev/service-warehouse/internal/arrowipc"
 	"github.com/codefly-dev/service-warehouse/internal/backend"
 	"github.com/codefly-dev/service-warehouse/internal/serr"
 )
@@ -36,17 +37,19 @@ func (r *sliceReader) Close() error { return nil }
 // message and the batch message.
 func batchOf(t *testing.T, schema *arrow.Schema, fill func(b *array.RecordBuilder)) (schemaMsg, batch []byte) {
 	t.Helper()
-	mem := memory.NewGoAllocator()
-	builder := array.NewRecordBuilder(mem, schema)
+	builder := array.NewRecordBuilder(memory.NewGoAllocator(), schema)
 	defer builder.Release()
 	fill(builder)
 	rec := builder.NewRecordBatch()
 	defer rec.Release()
-	fr, err := newFramer(schema, mem)
+	schemaMsg, err := arrowipc.SchemaMessage(schema)
 	require.NoError(t, err)
-	batch, err = fr.batch(rec)
+	enc, err := arrowipc.NewEncoder(schema)
 	require.NoError(t, err)
-	return fr.schemaMsg, batch
+	defer enc.Close()
+	batch, err = enc.Encode(rec)
+	require.NoError(t, err)
+	return schemaMsg, batch
 }
 
 var eventSchema = arrow.NewSchema([]arrow.Field{
@@ -351,7 +354,8 @@ func TestInsertRowsAcceptsAHeaderSchemaThatEndsTheStream(t *testing.T) {
 	b := f.open(t, backend.Config{})
 
 	header, batch := eventBatch(t, []int64{1}, []string{"a"})
-	res, err := insertRows(t, b, append(append([]byte{}, header...), eos...), batch)
+	endOfStream := []byte{0xff, 0xff, 0xff, 0xff, 0, 0, 0, 0}
+	res, err := insertRows(t, b, append(append([]byte{}, header...), endOfStream...), batch)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, res.RowsInserted)
 }
@@ -374,6 +378,37 @@ func TestInsertRowsRefusesMalformedAndMismatchedArrow(t *testing.T) {
 	_, err = insertRows(t, b, nil, append(append([]byte{}, header...), batch...), append(append([]byte{}, otherHeader...), otherBatch...))
 	require.True(t, serr.Is(err, serr.InvalidArgument), "batches that disagree on their schema: %v", err)
 }
+
+// A transport that fails mid-stream is the call's failure, not the client's
+// malformed Arrow: it is returned as itself and never as an invalid argument.
+func TestInsertRowsReturnsAFailedSourceAsItself(t *testing.T) {
+	f := newFake(t)
+	f.handle("GET /projects/test-project/datasets/d/tables/t", 200, eventTable)
+	f.handle("POST "+insertPath, 200, map[string]any{})
+	b := f.open(t, backend.Config{})
+	header, batch := eventBatch(t, []int64{1}, []string{"a"})
+
+	lost := serr.New(serr.Throttled, "recv", "the client went away")
+	_, err := b.InsertRows(context.Background(), backend.TableRef{Dataset: "d", Table: "t"}, header,
+		&failingReader{payloads: [][]byte{batch}, err: lost})
+	require.Same(t, lost, err)
+}
+
+// failingReader hands out its payloads and then fails instead of ending.
+type failingReader struct {
+	payloads [][]byte
+	err      error
+}
+
+func (r *failingReader) Next() ([]byte, error) {
+	if len(r.payloads) == 0 {
+		return nil, r.err
+	}
+	p := r.payloads[0]
+	r.payloads = r.payloads[1:]
+	return p, nil
+}
+func (r *failingReader) Close() error { return nil }
 
 func TestInsertRowsIsUnsupportedForAnArrowTypeBigQueryHasNoEquivalentOf(t *testing.T) {
 	f := newFake(t)

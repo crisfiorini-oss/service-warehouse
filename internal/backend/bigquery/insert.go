@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 
 	bq "cloud.google.com/go/bigquery"
 	"github.com/apache/arrow-go/v18/arrow"
 
+	"github.com/codefly-dev/service-warehouse/internal/arrowipc"
 	"github.com/codefly-dev/service-warehouse/internal/backend"
 	"github.com/codefly-dev/service-warehouse/internal/serr"
 )
@@ -81,11 +81,11 @@ func (b *Backend) InsertRows(ctx context.Context, ref backend.TableRef, schema [
 	if err != nil {
 		return nil, err
 	}
-	stream, err := newBatchStream(schema, batches)
+	stream, err := arrowipc.NewReader(schema, batches)
 	if err != nil {
-		return nil, err
+		return nil, streamError(err)
 	}
-	defer stream.close()
+	defer stream.Release()
 
 	table := b.client.Dataset(ref.Dataset).Table(ref.Table)
 	md, err := table.Metadata(ctx)
@@ -99,9 +99,19 @@ func (b *Backend) InsertRows(ctx context.Context, ref backend.TableRef, schema [
 	return insertAll(ctx, stream, md.Schema, inserter)
 }
 
+// streamError is the error to return for a failure to read the call's Arrow: the
+// client's malformed data is an invalid argument, and anything else, such as the
+// transport failing, is returned as itself.
+func streamError(err error) error {
+	if errors.Is(err, arrowipc.ErrMalformed) {
+		return serr.Wrap(serr.InvalidArgument, "InsertRows", fmt.Errorf("the Arrow data is malformed: %w", err))
+	}
+	return err
+}
+
 // insertAll runs the stream through plan, send and the classification of what
 // BigQuery answered.
-func insertAll(ctx context.Context, stream *batchStream, table bq.Schema, inserter rowInserter) (*backend.InsertResult, error) {
+func insertAll(ctx context.Context, stream *arrowipc.Reader, table bq.Schema, inserter rowInserter) (*backend.InsertResult, error) {
 	const op = "InsertRows"
 	var (
 		result   backend.InsertResult
@@ -122,24 +132,18 @@ func insertAll(ctx context.Context, stream *batchStream, table bq.Schema, insert
 		return err
 	}
 
-	for {
-		rec, err := stream.next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
+	// The stream owns each record it hands out until the next call, so none is
+	// released here.
+	for stream.Next() {
+		rec := stream.RecordBatch()
 		if !checked {
 			checked = true
 			if err := checkArrowSchema(rec.Schema()); err != nil {
-				rec.Release()
 				return nil, serr.New(serr.Unsupported, op, err.Error())
 			}
 			if name, twice := repeatedColumn(rec.Schema()); twice {
 				// Two columns of one name would reach BigQuery as one, and a value
 				// would be dropped without a word.
-				rec.Release()
 				return nil, serr.New(serr.InvalidArgument, op, fmt.Sprintf("the batch has two columns named %q (BigQuery names are not case-sensitive)", name))
 			}
 			conflict = schemaConflict(rec.Schema(), table)
@@ -152,7 +156,6 @@ func insertAll(ctx context.Context, stream *batchStream, table bq.Schema, insert
 				})
 			}
 			next += int64(rows)
-			rec.Release()
 			continue
 		}
 		for r := 0; r < rows; r++ {
@@ -163,7 +166,6 @@ func insertAll(ctx context.Context, stream *batchStream, table bq.Schema, insert
 			}
 			if len(request) == maxRowsPerInsert || reqBytes+row.size > maxRequestBytes {
 				if err := flush(); err != nil {
-					rec.Release()
 					return nil, err
 				}
 			}
@@ -171,7 +173,9 @@ func insertAll(ctx context.Context, stream *batchStream, table bq.Schema, insert
 			reqBytes += row.size
 		}
 		next += int64(rows)
-		rec.Release()
+	}
+	if err := stream.Err(); err != nil {
+		return nil, streamError(err)
 	}
 	if err := flush(); err != nil {
 		return nil, err
