@@ -87,7 +87,7 @@ func TestBatchMessagesDoNotCarryTheSchema(t *testing.T) {
 	// A batch message alone is not a stream: with no schema ahead of it, it
 	// cannot be read.
 	_, err = NewReader(nil, &msgs{list: [][]byte{m}})
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrMalformed)
 }
 
 func TestSelfDescribingStream(t *testing.T) {
@@ -131,6 +131,7 @@ func TestSourceErrorSurfaces(t *testing.T) {
 		err = rd.Err()
 	}
 	require.ErrorIs(t, err, boom)
+	require.NotErrorIs(t, err, ErrMalformed, "a source that failed is not data that is wrong")
 }
 
 func TestDictionaryEncodingIsRefused(t *testing.T) {
@@ -142,4 +143,88 @@ func TestDictionaryEncodingIsRefused(t *testing.T) {
 	require.Error(t, err)
 	_, err = NewEncoder(schema)
 	require.Error(t, err)
+}
+
+// A header schema that is terminated by the end-of-stream marker is still the
+// schema: read as a stream, the marker would end it before the first batch and
+// the rows would vanish without an error.
+func TestHeaderSchemaThatEndsTheStreamIsStillTheSchema(t *testing.T) {
+	enc, err := NewEncoder(testSchema)
+	require.NoError(t, err)
+	defer enc.Close()
+	rec := batch([]int64{1, 2}, []string{"a", "b"})
+	defer rec.Release()
+	m, err := enc.Encode(rec)
+	require.NoError(t, err)
+	header, err := SchemaMessage(testSchema)
+	require.NoError(t, err)
+
+	rd, err := NewReader(append(append([]byte(nil), header...), endOfStream[:]...), &msgs{list: [][]byte{m}})
+	require.NoError(t, err)
+	defer rd.Release()
+	var rows int64
+	for rd.Next() {
+		rows += rd.RecordBatch().NumRows()
+	}
+	require.NoError(t, rd.Err())
+	require.EqualValues(t, 2, rows)
+}
+
+func TestMalformedBytesAreErrMalformed(t *testing.T) {
+	enc, err := NewEncoder(testSchema)
+	require.NoError(t, err)
+	defer enc.Close()
+	rec := batch([]int64{1}, []string{"a"})
+	defer rec.Release()
+	m, err := enc.Encode(rec)
+	require.NoError(t, err)
+	header, err := SchemaMessage(testSchema)
+	require.NoError(t, err)
+
+	for name, tc := range map[string]struct {
+		header []byte
+		list   [][]byte
+	}{
+		"a header that is not a schema":         {[]byte{0xff, 0xff, 0xff, 0xff, 4, 0, 0, 0, 1, 2, 3, 4}, [][]byte{m}},
+		"a batch cut short":                     {header, [][]byte{m[:len(m)/2]}},
+		"a message that is not a message":       {header, [][]byte{{0xff, 0xff, 0xff, 0xff, 0x10, 0, 0, 0, 1, 2, 3}}},
+		"a second schema where a batch belongs": {header, [][]byte{append(append([]byte(nil), header...), m...)}},
+		"an empty message":                      {header, [][]byte{{}}},
+		"no schema and no message":              {nil, nil},
+	} {
+		t.Run(name, func(t *testing.T) {
+			rd, err := NewReader(tc.header, &msgs{list: tc.list})
+			if err == nil {
+				defer rd.Release()
+				for rd.Next() {
+				}
+				err = rd.Err()
+			}
+			require.ErrorIs(t, err, ErrMalformed)
+		})
+	}
+}
+
+// A message that follows an empty one is not read past it: skipping would hide a
+// client that sent a batch it never filled in.
+func TestEmptyMessageAfterBatchesStopsTheStream(t *testing.T) {
+	enc, err := NewEncoder(testSchema)
+	require.NoError(t, err)
+	defer enc.Close()
+	rec := batch([]int64{1}, []string{"a"})
+	defer rec.Release()
+	m, err := enc.Encode(rec)
+	require.NoError(t, err)
+	header, err := SchemaMessage(testSchema)
+	require.NoError(t, err)
+
+	rd, err := NewReader(header, &msgs{list: [][]byte{m, {}, m}})
+	require.NoError(t, err)
+	defer rd.Release()
+	var rows int64
+	for rd.Next() {
+		rows += rd.RecordBatch().NumRows()
+	}
+	require.EqualValues(t, 1, rows)
+	require.ErrorIs(t, rd.Err(), ErrMalformed)
 }

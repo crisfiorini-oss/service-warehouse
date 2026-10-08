@@ -145,11 +145,96 @@ type Source interface {
 	Next() ([]byte, error)
 }
 
+// ErrMalformed marks a failure to read the bytes as an Arrow IPC stream: not a
+// schema where one belongs, a batch that does not match it, a message cut short,
+// an empty message. It is the client's data that is wrong. A Source that fails to
+// deliver the bytes at all is not malformed data, and its error comes back as
+// itself, so a caller maps ErrMalformed to an invalid-argument and returns
+// anything else unchanged.
+var ErrMalformed = errors.New("malformed Arrow IPC stream")
+
+// errEmptyMessage is what an empty message is: not a batch, and not skippable.
+var errEmptyMessage = errors.New("an empty message is not an Arrow IPC message")
+
+// Reader reads the records of an Arrow IPC stream that arrives as wire messages.
+// It has the read side of an arrow-go ipc.Reader, with errors classified: see
+// ErrMalformed.
+type Reader struct {
+	r   *ipc.Reader
+	src *watchedSource
+	err error
+}
+
 // NewReader reads the records of a stream whose schema message is schema and
 // whose record-batch messages come from src. schema may be empty when src's
-// first message is self-describing (a schema message followed by batches).
-func NewReader(schema []byte, src Source) (*ipc.Reader, error) {
-	return ipc.NewReader(&messageStream{pending: schema, src: src}, ipc.WithAllocator(memory.DefaultAllocator))
+// first message is self-describing (a schema message followed by batches). A
+// schema that arrives terminated by the end-of-stream marker is read as the
+// schema it is: left on, the marker would end the stream before the first batch
+// and every row would be silently dropped.
+//
+// It reads the schema before it returns, so a first message that is not one is
+// reported here.
+func NewReader(schema []byte, src Source) (*Reader, error) {
+	w := &watchedSource{src: src}
+	r, err := ipc.NewReader(
+		&messageStream{pending: bytes.TrimSuffix(schema, endOfStream[:]), src: w},
+		ipc.WithAllocator(memory.DefaultAllocator),
+	)
+	if err != nil {
+		return nil, w.classify(err)
+	}
+	return &Reader{r: r, src: w}, nil
+}
+
+// Schema is the schema every record has.
+func (r *Reader) Schema() *arrow.Schema { return r.r.Schema() }
+
+// Next reads the next record, and reports false at the end of the stream or on
+// an error; Err says which. The record is valid until the next call to Next.
+func (r *Reader) Next() bool {
+	if r.err != nil {
+		return false
+	}
+	if r.r.Next() {
+		return true
+	}
+	if err := r.r.Err(); err != nil {
+		r.err = r.src.classify(err)
+	}
+	return false
+}
+
+// RecordBatch is the record Next read.
+func (r *Reader) RecordBatch() arrow.RecordBatch { return r.r.RecordBatch() }
+
+// Err is nil at a clean end of stream.
+func (r *Reader) Err() error { return r.err }
+
+// Release releases the reader and its current record.
+func (r *Reader) Release() { r.r.Release() }
+
+// watchedSource remembers why its Source failed, so the failure is returned as
+// itself and not as a complaint about Arrow.
+type watchedSource struct {
+	src Source
+	err error
+}
+
+func (w *watchedSource) Next() ([]byte, error) {
+	msg, err := w.src.Next()
+	if err != nil && !errors.Is(err, io.EOF) && w.err == nil {
+		w.err = err
+	}
+	return msg, err
+}
+
+// classify is the source's own error when the source failed, and ErrMalformed
+// around err when the bytes it delivered are what failed to read.
+func (w *watchedSource) classify(err error) error {
+	if w.err != nil {
+		return w.err
+	}
+	return fmt.Errorf("%w: %w", ErrMalformed, err)
 }
 
 // messageStream presents a header schema plus a Source of messages as one
@@ -172,6 +257,8 @@ func (m *messageStream) Read(p []byte) (int, error) {
 			m.pending = endOfStream[:]
 		case err != nil:
 			return 0, err
+		case len(next) == 0:
+			return 0, errEmptyMessage
 		default:
 			m.pending = next
 		}
