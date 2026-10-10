@@ -93,8 +93,9 @@ preferences; each is a rule an agent broke at real cost.
    cloud backend is exercised against its real warehouse from CI — there is no
    BigQuery, Snowflake, Redshift, or ClickHouse there. The `bigquery` backend is
    unit-tested against a fake of BigQuery's REST API
-   (`internal/backend/bigquery/fake_test.go`), which shows what the backend
-   sends and how it reads an answer, not what BigQuery does; its integration
+   (`internal/backend/bigquery/fake_test.go`) and, for `Scan`, a fake of the
+   Storage Read API's gRPC service (`readfake_test.go`), which show what the
+   backend sends and how it reads an answer, not what BigQuery does; its integration
    test runs only when `SWH_TEST_BIGQUERY_PROJECT` is set. A change touching a
    cloud path is therefore unproven against the real service unless that test
    was run, and the PR says which.

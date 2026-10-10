@@ -32,6 +32,7 @@ BigQuery Storage / Snowflake / ADBC converged on). Anything backend-specific
 | RPC | Purpose |
 |-----|---------|
 | `Query` | submit SQL (+ bind params, dry-run, byte cap); stream **Arrow** result batches |
+| `Scan` | read the rows of one table that match a structured filter, with no SQL and no query job; stream **Arrow** result batches |
 | `GetJob` / `CancelJob` | inspect / cancel an async job |
 | `ListDatasets` / `ListTables` / `GetTable` | catalog introspection |
 | `CreateDataset` / `DropDataset` | namespace DDL |
@@ -54,6 +55,31 @@ read is the diagnosis of its own invalid SQL (`InvalidArgument`).
 schema) followed by Arrow-IPC record batches. This is the encoding the industry
 converged on for warehouse egress, so a client feeds batches straight into any
 Arrow reader — no per-vendor row shape.
+
+## Scan: rows without SQL
+
+`Scan` reads the rows of one table that match a structured filter, and answers as
+`Query` does (a header, then Arrow batches). It exists for a deployment whose
+identity may read a table but may not run a query job (on BigQuery, one that holds
+read sessions and not `bigquery.jobs.create`), and a backend that offers it says so
+in `Capabilities.table_scan`; elsewhere it is `Unimplemented`.
+
+```
+ScanRequest { TableRef table; repeated string selected_fields; Filter filter; }
+Filter      { repeated Predicate predicates; }          // ANDed
+Predicate   { string field; PredicateOp op; ColumnType type; repeated string values; }
+PredicateOp   EQ | IN | LT | LE | GT | GE | IS_NULL | IS_NOT_NULL
+```
+
+A predicate is data and never SQL text: `field` is a column of the table, `op` takes
+one value (`EQ`, `LT`, `LE`, `GT`, `GE`), one or more (`IN`) or none (`IS_NULL`,
+`IS_NOT_NULL`, which also take no `type`), and `values` are text in the form
+`QueryParam.value` takes for `type`. An empty `selected_fields` returns every
+column in the table's order, otherwise the named columns in that order; an empty
+filter reads every row. A column the table lacks, a column selected twice, a
+malformed value and a wrong number of values are `InvalidArgument`. The header's
+`job` has no `id`; where a backend can say before it reads what a scan will read,
+`job.stats.bytes_scanned` is that estimate.
 
 ## Datasets vs. tables
 
@@ -80,6 +106,7 @@ never discovers a gap by a wrong answer.
 | RPC | `mem` | `duckdb` | `bigquery` |
 |-----|-------|----------|------------|
 | `Query` | `Unimplemented` | yes — one statement, `$name` parameters, dry run, timeout | yes — named parameters, dry run, byte cap, timeout |
+| `Scan` | `Unimplemented` | yes — a `SELECT` whose values are all bound parameters | yes — a Storage Read API session, no query job |
 | `GetJob` / `CancelJob` | `NotFound` (it runs no jobs) | `Unimplemented` | yes |
 | `ListDatasets` / `ListTables` / `GetTable` | yes | yes | yes |
 | `CreateDataset` / `DropDataset` | yes | yes | yes |
@@ -102,9 +129,12 @@ named by `SWH_CREDENTIALS_FILE`; nothing else is read. The server is bound to
 the project in `SWH_DATABASE`: jobs run and are billed in it, and `dataset` names
 are datasets of it. What the credentials must be allowed to do follows the RPCs a
 deployment uses: run query jobs and read data (`Query`, CTAS), read table
-metadata (`GetTable`, `ListTables`, and `InsertRows`, which reads it to compare
-the batch with the table), create and delete datasets and tables, and stream rows
-into a table.
+metadata (`GetTable`, `ListTables`, `InsertRows`, which reads it to compare the
+batch with the table, and `Scan`, which reads it to check the request against the
+table), create and delete datasets and tables, stream rows into a table, and, for
+`Scan`, create read sessions (`bigquery.readsessions.create`) and read table data
+(`bigquery.tables.getData`). `Scan` needs no `bigquery.jobs.create`, so an
+identity that may read a table but may not run SQL can use it.
 
 **Queries.** `sql` uses BigQuery's named parameters, `@name`; a parameter's `name`
 is given without the sigil. `value` is text, checked here and bound by BigQuery
@@ -133,6 +163,38 @@ reader. Types map as `BOOL`→bool, `INT64`→int64, `FLOAT64`→float64,
 `ARRAY`→list, `STRUCT`→struct. A column with no portable bucket (BigQuery
 `RANGE`) is `UNKNOWN` in the catalog with its spelling in `native_type`, and a
 query that returns one is `Unimplemented`.
+
+**Scan.** `Scan` opens a Storage Read API session, which is not a query job.
+`selected_fields` become the session's selected fields and the filter becomes its
+row restriction, so BigQuery prunes partitions and blocks before it sends a row.
+The restriction is written by this server from the structured filter: a column is
+named as the table spells it, in backticks, and must exist and be a scalar
+(`BOOL`, `INT64`, `FLOAT64`, `NUMERIC`, `STRING`, `BYTES`, `DATE`, `TIME`,
+`DATETIME`, `TIMESTAMP`; an `ARRAY`, `STRUCT` or `JSON` column is `Unimplemented`);
+a string is written as a double-quoted literal with `"` and `\` escaped and every
+other non-printable-ASCII character as a `\U` escape (a NUL is refused); bytes as
+a `b"\x.."` literal; a date, time, wall-clock timestamp or `NUMERIC` as a cast of
+its normalized text; an instant as a cast of its UTC time with an explicit
+`+00:00`. A value is parsed first, by the rules of a query parameter of its type.
+A value whose type cannot be compared with the column (a string with an integer, a
+`DATETIME` with a `TIMESTAMP`) is `InvalidArgument`; the numbers compare with each
+other. Columns come back in the order of `selected_fields`, not the table's.
+
+The session is split into at most `SWH_SCAN_STREAMS` streams (default 4), read in
+parallel and merged into one result: rows of one stream keep their order, streams
+interleave. A stream that breaks (`Unavailable`, `Internal`, `Aborted`,
+`DeadlineExceeded`, `ResourceExhausted`) is reopened at the row it reached, so no
+row repeats or goes missing; five failures in a row without a row in between fail
+the scan. Each response is cut into batches of at most 8192 rows or about 1 MiB,
+and a batch whose message still passes `SWH_MAX_ARROW_MESSAGE_BYTES` is cut again;
+a single row over that limit fails the scan `Unimplemented`. The header carries
+`job.stats.bytes_scanned`, the session's estimate of what it will scan, before any
+batch, and a scan whose estimate is over `SWH_MAX_QUERY_BYTES` is refused
+`ResourceExhausted` before it reads. It is an estimate from table metadata, not a
+meter. `SWH_QUERY_TIMEOUT` bounds the whole scan. A view is `Unimplemented`: it
+cannot be read without a query. A refusal by BigQuery is mapped as every other
+(`PermissionDenied` stays `PermissionDenied`). Rows still in a table's streaming
+buffer are visible to a scan only if the Read API shows them.
 
 **Catalog.** Listings carry BigQuery's names only, so each entry's detail is a
 metadata request of its own; pages default to 50 entries and never exceed 500.
@@ -181,6 +243,7 @@ replaces `SWH_DATABASE`.
 | `Query` params | DuckDB's `$name`. `@name` and `:name` are not rewritten (a rewrite cannot tell them from `::` casts and slices), and a parameter the SQL never reads is an error. Typed: BOOL, INT64, FLOAT64, STRING, DATE, TIME, TIMESTAMP (no zone), TIMESTAMPTZ (RFC 3339). An untyped parameter is text that DuckDB casts to what the SQL expects. NUMERIC, BYTES, INTERVAL, JSON, ARRAY, STRUCT parameters are `Unimplemented` (pass a STRING and cast it in the SQL) |
 | catalog and DDL | a dataset is a schema of the opened database; a table is a table or a view. Names compare without regard to case, as in DuckDB. `NumRows` is the engine's estimate; sizes and timestamps are not tracked and stay 0 |
 | `InsertRows` | columns are matched by name; an omitted column takes its default or NULL. See below |
+| `Scan` | `SELECT <the columns> FROM <the table> WHERE <predicates ANDed>`, every column name quoted and checked against the table (a name it lacks is `InvalidArgument`), every value a bound parameter and never spliced into the SQL. The values are typed as `Query` parameters are, so `NUMERIC`, `BYTES`, `INTERVAL`, `JSON`, `ARRAY` and `STRUCT` values are `Unimplemented`. A table or a view can be scanned. It runs through `Query`'s result path, so encoding, type rules and `SWH_QUERY_TIMEOUT` are the same. The server **refuses to start** with `SWH_SCAN_STREAMS` set: one connection reads a table, so there are no streams to set |
 | `GetJob`, `CancelJob`, `Load`, `Unload`, `Native` | `Unimplemented` |
 | `max_bytes_billed`, `SWH_MAX_QUERY_BYTES` | DuckDB bills nothing and cannot meter a scan. The request field is `Unimplemented`, and the server **refuses to start** with `SWH_MAX_QUERY_BYTES` set rather than run uncapped |
 | `timeout_ms`, `SWH_QUERY_TIMEOUT` | the shorter of the two applies, and the statement is interrupted; it fails `DeadlineExceeded` |
@@ -282,12 +345,12 @@ schema in a qualified name, so that is `InvalidArgument`.
 | `SWH_QUERY_TIMEOUT` | `0` | per-query timeout (Go duration; 0 = backend default); a request's `timeout_ms` can only shorten it |
 | `SWH_AUTH_TOKEN` | — | shared secret every caller must present; required unless `SWH_ALLOW_ANONYMOUS=true` |
 | `SWH_ALLOW_ANONYMOUS` | `false` | `true` accepts callers with no token; refused together with `SWH_AUTH_TOKEN` |
-| `SWH_MAX_ARROW_MESSAGE_BYTES` | `4194304` (4 MiB) | largest body of one Arrow IPC message a client may send (`InsertRows`); a larger one is `InvalidArgument`, refused before any of it is allocated. Must be positive. The default is grpc-go's own receive limit, which a message cannot exceed anyway: raising this above it has no effect until the gRPC server's limit is raised too |
+| `SWH_MAX_ARROW_MESSAGE_BYTES` | `4194304` (4 MiB) | largest body of one Arrow IPC message a client may send (`InsertRows`); a larger one is `InvalidArgument`, refused before any of it is allocated. Also the largest batch message `bigquery`'s `Scan` sends: it cuts a larger batch in two. Must be positive. The default is grpc-go's own receive limit, which a message cannot exceed anyway: raising this above it has no effect until the gRPC server's limit is raised too |
+| `SWH_SCAN_STREAMS` | `0` | most parallel streams one `Scan` reads (`bigquery`: a read session is split into at most this many; `0` is its default of 4). Between 0 and 1000, the Storage Read API's own ceiling; anything else is a startup error. `duckdb` has no streams and refuses to start with it set |
 
 The `bigquery` backend reads `SWH_DATABASE` (required), `SWH_DATASET`,
 `SWH_LOCATION`, `SWH_CREDENTIALS_FILE`, `SWH_MAX_QUERY_BYTES`,
-`SWH_QUERY_TIMEOUT` and `SWH_MAX_ARROW_MESSAGE_BYTES`, and adds no variable of its
-own. A setting it never reads is a startup error, not something silently ignored.
+`SWH_QUERY_TIMEOUT`, `SWH_MAX_ARROW_MESSAGE_BYTES` and `SWH_SCAN_STREAMS`. A setting it never reads is a startup error, not something silently ignored.
 
 ## Authentication
 
@@ -508,7 +571,8 @@ codefly generate proto --proto ./proto --output ./gen
 go build ./...
 go vet ./...
 go test -race ./...      # unit tests: mem, duckdb in-process, a bufconn server, the agent, and the
-                         # bigquery backend against a fake of BigQuery's REST API
+                         # bigquery backend against fakes of BigQuery's REST API and of
+                         # the Storage Read API's gRPC service (Scan)
 ```
 
 The release-gate regression tests use `git` and `jq` (also present in CI).
@@ -534,9 +598,10 @@ SWH_GATEWAY_IMAGE=service-warehouse:e2e go test -v -tags e2e -count=1 .
 With `SWH_GATEWAY_IMAGE` unset they skip, and a skipped run still prints `ok`:
 read `-v` for `--- PASS`.
 
-The `bigquery` unit tests contact nothing: they run the real client against a
-fake of BigQuery's REST API served from the test process, so they check what the
-backend sends and how it reads an answer, not what BigQuery does. The one test
+The `bigquery` unit tests contact nothing: they run the real clients against a
+fake of BigQuery's REST API and a fake of the Storage Read API's gRPC service
+(`BigQueryRead`, used by `Scan`), both served from the test process, so they check
+what the backend sends and how it reads an answer, not what BigQuery does. The one test
 that talks to BigQuery, `TestAgainstRealBigQuery` in
 [`internal/backend/bigquery/integration_test.go`](internal/backend/bigquery/integration_test.go),
 is skipped unless `SWH_TEST_BIGQUERY_PROJECT` names a project it may use. It
