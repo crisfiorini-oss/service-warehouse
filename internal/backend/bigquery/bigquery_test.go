@@ -83,6 +83,7 @@ func TestCapabilitiesSayExactlyWhatWorks(t *testing.T) {
 		StreamingInsert: true,
 		ArrowResults:    true,
 		MaxQueryBytes:   1 << 30,
+		TableScan:       true,
 	}, b.Capabilities())
 }
 

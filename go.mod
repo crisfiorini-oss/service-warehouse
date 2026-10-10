@@ -9,6 +9,7 @@ require (
 	github.com/codefly-dev/core v0.18.1
 	github.com/duckdb/duckdb-go/v2 v2.10506.0
 	github.com/google/flatbuffers v25.12.19+incompatible
+	github.com/googleapis/gax-go/v2 v2.23.0
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.23.0
@@ -88,7 +89,6 @@ require (
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.17 // indirect
-	github.com/googleapis/gax-go/v2 v2.23.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/klauspost/compress v1.19.2 // indirect

@@ -1,6 +1,7 @@
 // Package bigquery is the BigQuery backend: the whole catalog and DDL plane,
 // SQL queries with bound parameters and a dry run, job inspection and
-// cancellation, and streaming inserts, all in Arrow. Bulk load and unload and
+// cancellation, streaming inserts, and table scans through the Storage Read API
+// (which need no query job), all in Arrow. Bulk load and unload and
 // the Native verbs are not offered; they return serr.Unsupported and
 // Capabilities says so, so a client is never told something false.
 //
@@ -17,6 +18,7 @@ package bigquery
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -54,6 +56,8 @@ type Backend struct {
 	cfg     backend.Config
 	project string
 	client  *bq.Client
+	// sessions is the Storage Read API client Scan uses; see scan.go.
+	sessions *readSessions
 }
 
 var _ backend.Backend = (*Backend)(nil)
@@ -85,13 +89,22 @@ func Open(ctx context.Context, cfg backend.Config, opts ...option.ClientOption) 
 			return nil, err
 		}
 	}
+	if cfg.ScanStreams < 0 || cfg.ScanStreams > backend.MaxScanStreams {
+		return nil, serr.New(serr.InvalidArgument, op,
+			fmt.Sprintf("SWH_SCAN_STREAMS must be between 0 and %d, got %d", backend.MaxScanStreams, cfg.ScanStreams))
+	}
 	if cfg.Location != "" && !locationID.MatchString(cfg.Location) {
 		return nil, serr.New(serr.InvalidArgument, op, fmt.Sprintf("SWH_LOCATION %q is not a BigQuery location", cfg.Location))
 	}
+	// The Storage Read API client signs in as the BigQuery one does, and takes
+	// nothing else from opts, which a test aims at a REST endpoint.
+	var readOpts []option.ClientOption
 	if cfg.CredentialsFile != "" {
 		// Typed as a service account, so the file cannot silently be some other
 		// kind of credential configuration.
-		opts = append(opts, option.WithAuthCredentialsFile(option.ServiceAccount, cfg.CredentialsFile))
+		credentials := option.WithAuthCredentialsFile(option.ServiceAccount, cfg.CredentialsFile)
+		opts = append(opts, credentials)
+		readOpts = append(readOpts, credentials)
 	}
 	client, err := bq.NewClient(ctx, cfg.Database, opts...)
 	if err != nil {
@@ -99,7 +112,7 @@ func Open(ctx context.Context, cfg backend.Config, opts ...option.ClientOption) 
 		return nil, serr.Wrap(serr.Internal, op, fmt.Errorf("create the BigQuery client: %w", err))
 	}
 	client.Location = cfg.Location
-	return &Backend{cfg: cfg, project: cfg.Database, client: client}, nil
+	return &Backend{cfg: cfg, project: cfg.Database, client: client, sessions: newReadSessions(readOpts)}, nil
 }
 
 // unusedSettings names the SWH_* settings that are set and mean nothing to
@@ -143,6 +156,7 @@ func (b *Backend) Capabilities() backend.Capabilities {
 		MaxQueryBytes:   b.cfg.MaxQueryBytes,
 		LoadFormats:     nil,
 		NativeVerbs:     nil,
+		TableScan:       true,
 	}
 }
 
@@ -163,7 +177,9 @@ func (b *Backend) Native(_ context.Context, verb string, _ map[string]string) (m
 }
 
 // Close releases the client.
-func (b *Backend) Close() error { return b.client.Close() }
+func (b *Backend) Close() error {
+	return errors.Join(b.sessions.close(), b.client.Close())
+}
 
 // resolve fills the default dataset into a table reference and validates the
 // names, which are put into request paths.

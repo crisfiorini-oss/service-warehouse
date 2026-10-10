@@ -11,9 +11,12 @@ import (
 	"testing"
 
 	bq "cloud.google.com/go/bigquery"
+	"github.com/googleapis/gax-go/v2/apierror"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/googleapi"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/codefly-dev/service-warehouse/internal/serr"
 )
@@ -24,6 +27,15 @@ func apiErr(status int, reasons ...string) *googleapi.Error {
 		e.Errors = append(e.Errors, googleapi.ErrorItem{Reason: r, Message: "VENDOR ITEM"})
 	}
 	return e
+}
+
+// mustAPIError wraps a gRPC status the way the generated client does: in the
+// google-api error type, which keeps the status reachable.
+func mustAPIError(t *testing.T, err error) error {
+	t.Helper()
+	wrapped, ok := apierror.FromError(err)
+	require.True(t, ok)
+	return wrapped
 }
 
 func TestClassifyMapsEveryBigQueryFailureToANormalizedCode(t *testing.T) {
@@ -73,6 +85,22 @@ func TestClassifyMapsEveryBigQueryFailureToANormalizedCode(t *testing.T) {
 		"deadline in a transport": {&url.Error{Op: "Get", URL: "x", Err: context.DeadlineExceeded}, serr.DeadlineExceeded},
 		"canceled":                {context.Canceled, serr.Internal},
 		"unknown":                 {errors.New("boom"), serr.Internal},
+
+		// The Storage Read API answers over gRPC: a status, no HTTP code or reason.
+		"grpc permission denied":      {status.Error(codes.PermissionDenied, "VENDOR"), serr.PermissionDenied},
+		"grpc unauthenticated":        {status.Error(codes.Unauthenticated, "VENDOR"), serr.PermissionDenied},
+		"grpc not found":              {status.Error(codes.NotFound, "VENDOR"), serr.NotFound},
+		"grpc invalid argument":       {status.Error(codes.InvalidArgument, "VENDOR"), serr.InvalidArgument},
+		"grpc already exists":         {status.Error(codes.AlreadyExists, "VENDOR"), serr.AlreadyExists},
+		"grpc failed precondition":    {status.Error(codes.FailedPrecondition, "VENDOR"), serr.PreconditionFailed},
+		"grpc resource exhausted":     {status.Error(codes.ResourceExhausted, "VENDOR"), serr.Throttled},
+		"grpc unimplemented":          {status.Error(codes.Unimplemented, "VENDOR"), serr.Unsupported},
+		"grpc deadline exceeded":      {status.Error(codes.DeadlineExceeded, "VENDOR"), serr.DeadlineExceeded},
+		"grpc unavailable":            {status.Error(codes.Unavailable, "VENDOR"), serr.Internal},
+		"grpc internal":               {status.Error(codes.Internal, "VENDOR"), serr.Internal},
+		"grpc unknown":                {status.Error(codes.Unknown, "VENDOR"), serr.Internal},
+		"grpc wrapped":                {fmt.Errorf("read stream: %w", status.Error(codes.PermissionDenied, "VENDOR")), serr.PermissionDenied},
+		"grpc through the client lib": {mustAPIError(t, status.Error(codes.PermissionDenied, "VENDOR")), serr.PermissionDenied},
 	} {
 		t.Run(name, func(t *testing.T) {
 			err := classify("Op", tc.err)
@@ -93,13 +121,15 @@ func TestWhatAClientIsToldIsWrittenHereNotTakenFromTheVendor(t *testing.T) {
 	logged := quiet(t)
 
 	for name, err := range map[string]error{
-		"denied":   apiErr(403, "accessDenied"),
-		"internal": apiErr(500, "backendError"),
-		"throttle": apiErr(403, "quotaExceeded"),
-		"missing":  apiErr(404, "notFound"),
-		"conflict": apiErr(409, "duplicate"),
-		"in use":   apiErr(400, "resourceInUse"),
-		"unknown":  errors.New("VENDOR SECRET svc@example.iam.gserviceaccount.com"),
+		"denied":        apiErr(403, "accessDenied"),
+		"internal":      apiErr(500, "backendError"),
+		"throttle":      apiErr(403, "quotaExceeded"),
+		"missing":       apiErr(404, "notFound"),
+		"conflict":      apiErr(409, "duplicate"),
+		"in use":        apiErr(400, "resourceInUse"),
+		"unknown":       errors.New("VENDOR SECRET svc@example.iam.gserviceaccount.com"),
+		"grpc denied":   status.Error(codes.PermissionDenied, "VENDOR SECRET svc@example.iam.gserviceaccount.com"),
+		"grpc internal": status.Error(codes.Internal, "VENDOR SECRET svc@example.iam.gserviceaccount.com"),
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := classify("Op", err)

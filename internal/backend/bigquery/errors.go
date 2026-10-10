@@ -10,6 +10,8 @@ import (
 	bq "cloud.google.com/go/bigquery"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/googleapi"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/codefly-dev/service-warehouse/internal/serr"
 )
@@ -31,6 +33,9 @@ type failure struct {
 	reasons []string
 	// message is BigQuery's human-readable text.
 	message string
+	// grpc is the gRPC status code of a failure that came over gRPC, which is how
+	// the Storage Read API answers; codes.OK when there was none.
+	grpc codes.Code
 }
 
 // inspect reads the vendor error types this backend can meet. It reports false
@@ -81,6 +86,16 @@ func inspect(err error) (failure, bool) {
 					f.message = inner.message
 				}
 			}
+		}
+	}
+
+	// The Storage Read API speaks gRPC, so its failures carry a status and no
+	// HTTP code or reason token. A context error is not one: it has no status.
+	if st, ok := status.FromError(err); ok && st.Code() != codes.OK && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+		found = true
+		f.grpc = st.Code()
+		if f.message == "" {
+			f.message = st.Message()
 		}
 	}
 
@@ -136,8 +151,26 @@ var httpCodes = map[int]serr.Code{
 	http.StatusServiceUnavailable:  serr.Internal,
 }
 
+// grpcCodes is the fallback for a failure that came over gRPC and named no reason
+// BigQuery is known by. Anything not listed (Unknown, Aborted, DataLoss, Canceled)
+// is Internal.
+var grpcCodes = map[codes.Code]serr.Code{
+	codes.InvalidArgument:    serr.InvalidArgument,
+	codes.OutOfRange:         serr.InvalidArgument,
+	codes.Unauthenticated:    serr.PermissionDenied,
+	codes.PermissionDenied:   serr.PermissionDenied,
+	codes.NotFound:           serr.NotFound,
+	codes.AlreadyExists:      serr.AlreadyExists,
+	codes.FailedPrecondition: serr.PreconditionFailed,
+	codes.ResourceExhausted:  serr.Throttled,
+	codes.Unimplemented:      serr.Unsupported,
+	codes.DeadlineExceeded:   serr.DeadlineExceeded,
+	codes.Unavailable:        serr.Internal,
+	codes.Internal:           serr.Internal,
+}
+
 // codeFor is the normalized code of a vendor failure: the first reason BigQuery
-// gave that is known, else the HTTP status, else Internal.
+// gave that is known, else the HTTP status, else the gRPC status, else Internal.
 func codeFor(f failure) serr.Code {
 	for _, reason := range f.reasons {
 		if code, ok := reasonCodes[reason]; ok {
@@ -145,6 +178,9 @@ func codeFor(f failure) serr.Code {
 		}
 	}
 	if code, ok := httpCodes[f.http]; ok {
+		return code
+	}
+	if code, ok := grpcCodes[f.grpc]; ok {
 		return code
 	}
 	return serr.Internal

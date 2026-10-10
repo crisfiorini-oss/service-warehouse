@@ -31,7 +31,8 @@ import (
 // skipped otherwise. It creates one dataset of its own, named with a random
 // suffix, puts everything it makes inside it, and deletes it when it ends; it
 // never reads or changes anything else in the project. The project needs the
-// permissions to create datasets, tables and query jobs, and to stream rows.
+// permissions to create datasets, tables and query jobs, to stream rows, and to
+// create read sessions (bigquery.readsessions.create) for the Scan subtest.
 //
 //	SWH_TEST_BIGQUERY_PROJECT           the project to use (required to run)
 //	SWH_TEST_BIGQUERY_LOCATION          where to create the dataset (optional; the project's default otherwise)
@@ -244,6 +245,56 @@ func TestAgainstRealBigQuery(t *testing.T) {
 		_, err = b.Query(ctx, "SELEC 1", backend.QueryOptions{})
 		require.True(t, serr.Is(err, serr.InvalidArgument), "got %v", err)
 		_, err = b.Query(ctx, "SELECT * FROM `"+project+"."+dataset+".missing`", backend.QueryOptions{})
+		require.True(t, serr.Is(err, serr.NotFound), "got %v", err)
+	})
+
+	// Scan reads the rows the previous subtest inserted through a Storage Read API
+	// session instead of a query job. Like the query above it waits for the
+	// streamed rows to become readable; unlike it, whether the Read API sees rows
+	// still in the streaming buffer is the thing this subtest finds out.
+	t.Run("scan the inserted rows", func(t *testing.T) {
+		ref := backend.TableRef{Dataset: dataset, Table: "events"}
+		// A poll loop, not require.Eventually: drainScan asserts, and must run on the
+		// test's own goroutine.
+		var got *scanned
+		for deadline := time.Now().Add(2 * time.Minute); got == nil; time.Sleep(5 * time.Second) {
+			require.True(t, time.Now().Before(deadline), "the row inserted as id 2 is readable by a scan")
+			res, err := b.Scan(ctx, ref, backend.ScanOptions{
+				Selected: []string{"name", "id"},
+				Filter: []backend.Predicate{
+					{Field: "id", Op: backend.OpEq, Type: backend.TypeInt64, Values: []string{"2"}},
+					{Field: "name", Op: backend.OpIn, Type: backend.TypeString, Values: []string{"event b", `event "b"\`}},
+					{Field: "at", Op: backend.OpIsNotNull},
+				},
+			})
+			if err != nil {
+				t.Logf("scan: %v", err)
+				continue
+			}
+			if out := drainScan(t, res); len(out.ids) == 1 {
+				got = out
+			}
+		}
+
+		require.Equal(t, []int64{2}, got.ids)
+		require.Equal(t, []string{"event b"}, got.names)
+		require.Equal(t, []string{"name", "id"}, []string{got.res.Schema[0].Name, got.res.Schema[1].Name}, "columns come back in the order selected")
+		require.Empty(t, got.res.Job.ID, "a scan runs no job")
+		require.GreaterOrEqual(t, got.res.Job.Stats.BytesScanned, int64(0))
+
+		// A value full of quotes and backslashes is accepted by BigQuery's own parser
+		// and matches nothing; it must not be a failed request.
+		res, err := b.Scan(ctx, ref, backend.ScanOptions{Filter: []backend.Predicate{
+			{Field: "name", Op: backend.OpEq, Type: backend.TypeString, Values: []string{"it's \"quoted\" \\ \n done"}},
+		}})
+		require.NoError(t, err)
+		require.Empty(t, drainScan(t, res).ids)
+
+		_, err = b.Scan(ctx, ref, backend.ScanOptions{Filter: []backend.Predicate{
+			{Field: "no_such_column", Op: backend.OpEq, Type: backend.TypeInt64, Values: []string{"1"}},
+		}})
+		require.True(t, serr.Is(err, serr.InvalidArgument), "got %v", err)
+		_, err = b.Scan(ctx, backend.TableRef{Dataset: dataset, Table: "nope"}, backend.ScanOptions{})
 		require.True(t, serr.Is(err, serr.NotFound), "got %v", err)
 	})
 
