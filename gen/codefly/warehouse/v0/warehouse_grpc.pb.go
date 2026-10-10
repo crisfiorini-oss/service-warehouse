@@ -30,6 +30,7 @@ const (
 	Warehouse_Query_FullMethodName         = "/codefly.warehouse.v0.Warehouse/Query"
 	Warehouse_GetJob_FullMethodName        = "/codefly.warehouse.v0.Warehouse/GetJob"
 	Warehouse_CancelJob_FullMethodName     = "/codefly.warehouse.v0.Warehouse/CancelJob"
+	Warehouse_Scan_FullMethodName          = "/codefly.warehouse.v0.Warehouse/Scan"
 	Warehouse_ListDatasets_FullMethodName  = "/codefly.warehouse.v0.Warehouse/ListDatasets"
 	Warehouse_ListTables_FullMethodName    = "/codefly.warehouse.v0.Warehouse/ListTables"
 	Warehouse_GetTable_FullMethodName      = "/codefly.warehouse.v0.Warehouse/GetTable"
@@ -58,6 +59,11 @@ type WarehouseClient interface {
 	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[QueryResponse], error)
 	GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*Job, error)
 	CancelJob(ctx context.Context, in *CancelJobRequest, opts ...grpc.CallOption) (*CancelJobResult, error)
+	// Scan reads the rows of one table that match a structured filter and streams
+	// them as Arrow, like Query but with no SQL and no job. A caller whose
+	// credentials may read a table yet may not run a query uses this. Check
+	// BackendCapabilities.table_scan first.
+	Scan(ctx context.Context, in *ScanRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[QueryResponse], error)
 	// Catalog plane.
 	ListDatasets(ctx context.Context, in *ListDatasetsRequest, opts ...grpc.CallOption) (*ListDatasetsResult, error)
 	ListTables(ctx context.Context, in *ListTablesRequest, opts ...grpc.CallOption) (*ListTablesResult, error)
@@ -121,6 +127,25 @@ func (c *warehouseClient) CancelJob(ctx context.Context, in *CancelJobRequest, o
 	}
 	return out, nil
 }
+
+func (c *warehouseClient) Scan(ctx context.Context, in *ScanRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[QueryResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Warehouse_ServiceDesc.Streams[1], Warehouse_Scan_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ScanRequest, QueryResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Warehouse_ScanClient = grpc.ServerStreamingClient[QueryResponse]
 
 func (c *warehouseClient) ListDatasets(ctx context.Context, in *ListDatasetsRequest, opts ...grpc.CallOption) (*ListDatasetsResult, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -214,7 +239,7 @@ func (c *warehouseClient) Unload(ctx context.Context, in *UnloadRequest, opts ..
 
 func (c *warehouseClient) InsertRows(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[InsertRowsRequest, InsertRowsResult], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &Warehouse_ServiceDesc.Streams[1], Warehouse_InsertRows_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &Warehouse_ServiceDesc.Streams[2], Warehouse_InsertRows_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -259,6 +284,11 @@ type WarehouseServer interface {
 	Query(*QueryRequest, grpc.ServerStreamingServer[QueryResponse]) error
 	GetJob(context.Context, *GetJobRequest) (*Job, error)
 	CancelJob(context.Context, *CancelJobRequest) (*CancelJobResult, error)
+	// Scan reads the rows of one table that match a structured filter and streams
+	// them as Arrow, like Query but with no SQL and no job. A caller whose
+	// credentials may read a table yet may not run a query uses this. Check
+	// BackendCapabilities.table_scan first.
+	Scan(*ScanRequest, grpc.ServerStreamingServer[QueryResponse]) error
 	// Catalog plane.
 	ListDatasets(context.Context, *ListDatasetsRequest) (*ListDatasetsResult, error)
 	ListTables(context.Context, *ListTablesRequest) (*ListTablesResult, error)
@@ -292,6 +322,9 @@ func (UnimplementedWarehouseServer) GetJob(context.Context, *GetJobRequest) (*Jo
 }
 func (UnimplementedWarehouseServer) CancelJob(context.Context, *CancelJobRequest) (*CancelJobResult, error) {
 	return nil, status.Error(codes.Unimplemented, "method CancelJob not implemented")
+}
+func (UnimplementedWarehouseServer) Scan(*ScanRequest, grpc.ServerStreamingServer[QueryResponse]) error {
+	return status.Error(codes.Unimplemented, "method Scan not implemented")
 }
 func (UnimplementedWarehouseServer) ListDatasets(context.Context, *ListDatasetsRequest) (*ListDatasetsResult, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListDatasets not implemented")
@@ -396,6 +429,17 @@ func _Warehouse_CancelJob_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	return interceptor(ctx, in, info, handler)
 }
+
+func _Warehouse_Scan_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ScanRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(WarehouseServer).Scan(m, &grpc.GenericServerStream[ScanRequest, QueryResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Warehouse_ScanServer = grpc.ServerStreamingServer[QueryResponse]
 
 func _Warehouse_ListDatasets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListDatasetsRequest)
@@ -666,6 +710,11 @@ var Warehouse_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "Query",
 			Handler:       _Warehouse_Query_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "Scan",
+			Handler:       _Warehouse_Scan_Handler,
 			ServerStreams: true,
 		},
 		{

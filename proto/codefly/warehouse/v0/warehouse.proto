@@ -122,6 +122,9 @@ message QueryRequest {
 // QueryResponse streams: the first message MUST be the header, every following
 // message carries one Arrow-IPC record batch. A dry_run returns only the
 // header. A DDL/DML query returns a header with an empty schema and no batches.
+// A Scan streams the same way: header.job has no id (a scan has no job to look
+// up) and, where the backend can say what a scan will read before it reads,
+// header.job.stats.bytes_scanned is that estimate, sent before any batch.
 message QueryResponse {
   oneof kind {
     QueryHeader header = 1;
@@ -136,6 +139,73 @@ message QueryHeader {
   // Arrow reader without reconstructing it.
   repeated Column schema = 2;
   bytes arrow_ipc_schema = 3;
+}
+
+// PredicateOp is the comparison a Predicate makes between a column and its
+// values. Every operator means the same on every backend that offers Scan.
+enum PredicateOp {
+  // Not an operator; a predicate that carries it is invalid.
+  PREDICATE_OP_UNSPECIFIED = 0;
+  // column = values[0]. Exactly one value.
+  PREDICATE_OP_EQ = 1;
+  // column equals any of values. One or more values.
+  PREDICATE_OP_IN = 2;
+  // column < values[0]. Exactly one value.
+  PREDICATE_OP_LT = 3;
+  // column <= values[0]. Exactly one value.
+  PREDICATE_OP_LE = 4;
+  // column > values[0]. Exactly one value.
+  PREDICATE_OP_GT = 5;
+  // column >= values[0]. Exactly one value.
+  PREDICATE_OP_GE = 6;
+  // column is NULL. No values, and no type.
+  PREDICATE_OP_IS_NULL = 7;
+  // column is not NULL. No values, and no type.
+  PREDICATE_OP_IS_NOT_NULL = 8;
+}
+
+// Predicate is one comparison of a column with typed values. It is data, never
+// SQL text: the backend renders or binds the values itself, so nothing a caller
+// puts in a value can change what is asked.
+message Predicate {
+  // field names a column of the scanned table. It is matched without regard to
+  // case; a name the table lacks is INVALID_ARGUMENT.
+  string field = 1;
+  // op is the comparison.
+  PredicateOp op = 2;
+  // type is the portable type every entry of values has. It is required when op
+  // takes values (a scalar type; ARRAY and STRUCT are UNIMPLEMENTED) and must be
+  // unset when it does not.
+  ColumnType type = 3;
+  // values are the operands, each rendered as text in the form QueryParam.value
+  // takes for the same type: booleans as true/false, integers and floats as
+  // decimal text, dates as YYYY-MM-DD, wall-clock timestamps without a zone,
+  // instants as RFC 3339 with a zone, bytes as standard base64.
+  repeated string values = 4;
+}
+
+// Filter is a conjunction: a row is read only when every predicate holds. An
+// empty filter reads every row of the table.
+message Filter {
+  // predicates are ANDed. They carry no dialect text and no grouping.
+  repeated Predicate predicates = 1;
+}
+
+// ScanRequest reads rows of one table directly, without running SQL. It exists
+// for a deployment whose identity may read a table but may not run a query job,
+// and is offered by every backend that can read a table that way; see
+// BackendCapabilities.table_scan. The reply is the Query reply: a header, then
+// Arrow-IPC record batches.
+message ScanRequest {
+  // table is the table to read. An empty dataset resolves to the backend
+  // default; a view is refused where the backend cannot read one directly.
+  TableRef table = 1;
+  // selected_fields are the columns to return, in this order. Empty returns
+  // every column in the table's order. A name the table lacks, or one listed
+  // twice, is INVALID_ARGUMENT.
+  repeated string selected_fields = 2;
+  // filter narrows the rows read. Unset reads every row.
+  Filter filter = 3;
 }
 
 message GetJobRequest {
@@ -361,6 +431,9 @@ message BackendCapabilities {
   int64 max_query_bytes = 10;
   repeated LoadFormat load_formats = 11;
   repeated string native_verbs = 12;
+  // table_scan reports that Scan is offered: rows of a table read directly,
+  // with no SQL and no query job. A false flag means Scan is UNIMPLEMENTED.
+  bool table_scan = 13;
 }
 
 message NativeRequest {
@@ -385,6 +458,12 @@ service Warehouse {
   rpc Query(QueryRequest) returns (stream QueryResponse);
   rpc GetJob(GetJobRequest) returns (Job);
   rpc CancelJob(CancelJobRequest) returns (CancelJobResult);
+
+  // Scan reads the rows of one table that match a structured filter and streams
+  // them as Arrow, like Query but with no SQL and no job. A caller whose
+  // credentials may read a table yet may not run a query uses this. Check
+  // BackendCapabilities.table_scan first.
+  rpc Scan(ScanRequest) returns (stream QueryResponse);
 
   // Catalog plane.
   rpc ListDatasets(ListDatasetsRequest) returns (ListDatasetsResult);

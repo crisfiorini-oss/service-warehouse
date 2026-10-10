@@ -183,6 +183,84 @@ func (JobState) EnumDescriptor() ([]byte, []int) {
 	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{1}
 }
 
+// PredicateOp is the comparison a Predicate makes between a column and its
+// values. Every operator means the same on every backend that offers Scan.
+type PredicateOp int32
+
+const (
+	// Not an operator; a predicate that carries it is invalid.
+	PredicateOp_PREDICATE_OP_UNSPECIFIED PredicateOp = 0
+	// column = values[0]. Exactly one value.
+	PredicateOp_PREDICATE_OP_EQ PredicateOp = 1
+	// column equals any of values. One or more values.
+	PredicateOp_PREDICATE_OP_IN PredicateOp = 2
+	// column < values[0]. Exactly one value.
+	PredicateOp_PREDICATE_OP_LT PredicateOp = 3
+	// column <= values[0]. Exactly one value.
+	PredicateOp_PREDICATE_OP_LE PredicateOp = 4
+	// column > values[0]. Exactly one value.
+	PredicateOp_PREDICATE_OP_GT PredicateOp = 5
+	// column >= values[0]. Exactly one value.
+	PredicateOp_PREDICATE_OP_GE PredicateOp = 6
+	// column is NULL. No values, and no type.
+	PredicateOp_PREDICATE_OP_IS_NULL PredicateOp = 7
+	// column is not NULL. No values, and no type.
+	PredicateOp_PREDICATE_OP_IS_NOT_NULL PredicateOp = 8
+)
+
+// Enum value maps for PredicateOp.
+var (
+	PredicateOp_name = map[int32]string{
+		0: "PREDICATE_OP_UNSPECIFIED",
+		1: "PREDICATE_OP_EQ",
+		2: "PREDICATE_OP_IN",
+		3: "PREDICATE_OP_LT",
+		4: "PREDICATE_OP_LE",
+		5: "PREDICATE_OP_GT",
+		6: "PREDICATE_OP_GE",
+		7: "PREDICATE_OP_IS_NULL",
+		8: "PREDICATE_OP_IS_NOT_NULL",
+	}
+	PredicateOp_value = map[string]int32{
+		"PREDICATE_OP_UNSPECIFIED": 0,
+		"PREDICATE_OP_EQ":          1,
+		"PREDICATE_OP_IN":          2,
+		"PREDICATE_OP_LT":          3,
+		"PREDICATE_OP_LE":          4,
+		"PREDICATE_OP_GT":          5,
+		"PREDICATE_OP_GE":          6,
+		"PREDICATE_OP_IS_NULL":     7,
+		"PREDICATE_OP_IS_NOT_NULL": 8,
+	}
+)
+
+func (x PredicateOp) Enum() *PredicateOp {
+	p := new(PredicateOp)
+	*p = x
+	return p
+}
+
+func (x PredicateOp) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (PredicateOp) Descriptor() protoreflect.EnumDescriptor {
+	return file_codefly_warehouse_v0_warehouse_proto_enumTypes[2].Descriptor()
+}
+
+func (PredicateOp) Type() protoreflect.EnumType {
+	return &file_codefly_warehouse_v0_warehouse_proto_enumTypes[2]
+}
+
+func (x PredicateOp) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use PredicateOp.Descriptor instead.
+func (PredicateOp) EnumDescriptor() ([]byte, []int) {
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{2}
+}
+
 // TableKind distinguishes a physical table from a view / materialized view /
 // external table — a client introspects before it mutates.
 type TableKind int32
@@ -224,11 +302,11 @@ func (x TableKind) String() string {
 }
 
 func (TableKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_codefly_warehouse_v0_warehouse_proto_enumTypes[2].Descriptor()
+	return file_codefly_warehouse_v0_warehouse_proto_enumTypes[3].Descriptor()
 }
 
 func (TableKind) Type() protoreflect.EnumType {
-	return &file_codefly_warehouse_v0_warehouse_proto_enumTypes[2]
+	return &file_codefly_warehouse_v0_warehouse_proto_enumTypes[3]
 }
 
 func (x TableKind) Number() protoreflect.EnumNumber {
@@ -237,7 +315,7 @@ func (x TableKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TableKind.Descriptor instead.
 func (TableKind) EnumDescriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{2}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{3}
 }
 
 // LoadFormat is the on-disk format of the source files a Load reads.
@@ -283,11 +361,11 @@ func (x LoadFormat) String() string {
 }
 
 func (LoadFormat) Descriptor() protoreflect.EnumDescriptor {
-	return file_codefly_warehouse_v0_warehouse_proto_enumTypes[3].Descriptor()
+	return file_codefly_warehouse_v0_warehouse_proto_enumTypes[4].Descriptor()
 }
 
 func (LoadFormat) Type() protoreflect.EnumType {
-	return &file_codefly_warehouse_v0_warehouse_proto_enumTypes[3]
+	return &file_codefly_warehouse_v0_warehouse_proto_enumTypes[4]
 }
 
 func (x LoadFormat) Number() protoreflect.EnumNumber {
@@ -296,7 +374,7 @@ func (x LoadFormat) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use LoadFormat.Descriptor instead.
 func (LoadFormat) EnumDescriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{3}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{4}
 }
 
 // WriteDisposition controls how a Load / CTAS resolves against an existing
@@ -337,11 +415,11 @@ func (x WriteDisposition) String() string {
 }
 
 func (WriteDisposition) Descriptor() protoreflect.EnumDescriptor {
-	return file_codefly_warehouse_v0_warehouse_proto_enumTypes[4].Descriptor()
+	return file_codefly_warehouse_v0_warehouse_proto_enumTypes[5].Descriptor()
 }
 
 func (WriteDisposition) Type() protoreflect.EnumType {
-	return &file_codefly_warehouse_v0_warehouse_proto_enumTypes[4]
+	return &file_codefly_warehouse_v0_warehouse_proto_enumTypes[5]
 }
 
 func (x WriteDisposition) Number() protoreflect.EnumNumber {
@@ -350,7 +428,7 @@ func (x WriteDisposition) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WriteDisposition.Descriptor instead.
 func (WriteDisposition) EnumDescriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{4}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{5}
 }
 
 // RowRefusal is the portable reason a backend permanently refused one row of an
@@ -404,11 +482,11 @@ func (x RowRefusal) String() string {
 }
 
 func (RowRefusal) Descriptor() protoreflect.EnumDescriptor {
-	return file_codefly_warehouse_v0_warehouse_proto_enumTypes[5].Descriptor()
+	return file_codefly_warehouse_v0_warehouse_proto_enumTypes[6].Descriptor()
 }
 
 func (RowRefusal) Type() protoreflect.EnumType {
-	return &file_codefly_warehouse_v0_warehouse_proto_enumTypes[5]
+	return &file_codefly_warehouse_v0_warehouse_proto_enumTypes[6]
 }
 
 func (x RowRefusal) Number() protoreflect.EnumNumber {
@@ -417,7 +495,7 @@ func (x RowRefusal) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use RowRefusal.Descriptor instead.
 func (RowRefusal) EnumDescriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{5}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{6}
 }
 
 // Column describes one field of a table or a result set. native_type is the
@@ -933,6 +1011,9 @@ func (x *QueryRequest) GetArrow() bool {
 // QueryResponse streams: the first message MUST be the header, every following
 // message carries one Arrow-IPC record batch. A dry_run returns only the
 // header. A DDL/DML query returns a header with an empty schema and no batches.
+// A Scan streams the same way: header.job has no id (a scan has no job to look
+// up) and, where the backend can say what a scan will read before it reads,
+// header.job.stats.bytes_scanned is that estimate, sent before any batch.
 type QueryResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Kind:
@@ -1078,6 +1159,205 @@ func (x *QueryHeader) GetArrowIpcSchema() []byte {
 	return nil
 }
 
+// Predicate is one comparison of a column with typed values. It is data, never
+// SQL text: the backend renders or binds the values itself, so nothing a caller
+// puts in a value can change what is asked.
+type Predicate struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// field names a column of the scanned table. It is matched without regard to
+	// case; a name the table lacks is INVALID_ARGUMENT.
+	Field string `protobuf:"bytes,1,opt,name=field,proto3" json:"field,omitempty"`
+	// op is the comparison.
+	Op PredicateOp `protobuf:"varint,2,opt,name=op,proto3,enum=codefly.warehouse.v0.PredicateOp" json:"op,omitempty"`
+	// type is the portable type every entry of values has. It is required when op
+	// takes values (a scalar type; ARRAY and STRUCT are UNIMPLEMENTED) and must be
+	// unset when it does not.
+	Type ColumnType `protobuf:"varint,3,opt,name=type,proto3,enum=codefly.warehouse.v0.ColumnType" json:"type,omitempty"`
+	// values are the operands, each rendered as text in the form QueryParam.value
+	// takes for the same type: booleans as true/false, integers and floats as
+	// decimal text, dates as YYYY-MM-DD, wall-clock timestamps without a zone,
+	// instants as RFC 3339 with a zone, bytes as standard base64.
+	Values        []string `protobuf:"bytes,4,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Predicate) Reset() {
+	*x = Predicate{}
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Predicate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Predicate) ProtoMessage() {}
+
+func (x *Predicate) ProtoReflect() protoreflect.Message {
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Predicate.ProtoReflect.Descriptor instead.
+func (*Predicate) Descriptor() ([]byte, []int) {
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *Predicate) GetField() string {
+	if x != nil {
+		return x.Field
+	}
+	return ""
+}
+
+func (x *Predicate) GetOp() PredicateOp {
+	if x != nil {
+		return x.Op
+	}
+	return PredicateOp_PREDICATE_OP_UNSPECIFIED
+}
+
+func (x *Predicate) GetType() ColumnType {
+	if x != nil {
+		return x.Type
+	}
+	return ColumnType_COLUMN_TYPE_UNSPECIFIED
+}
+
+func (x *Predicate) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// Filter is a conjunction: a row is read only when every predicate holds. An
+// empty filter reads every row of the table.
+type Filter struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// predicates are ANDed. They carry no dialect text and no grouping.
+	Predicates    []*Predicate `protobuf:"bytes,1,rep,name=predicates,proto3" json:"predicates,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Filter) Reset() {
+	*x = Filter{}
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Filter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Filter) ProtoMessage() {}
+
+func (x *Filter) ProtoReflect() protoreflect.Message {
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Filter.ProtoReflect.Descriptor instead.
+func (*Filter) Descriptor() ([]byte, []int) {
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *Filter) GetPredicates() []*Predicate {
+	if x != nil {
+		return x.Predicates
+	}
+	return nil
+}
+
+// ScanRequest reads rows of one table directly, without running SQL. It exists
+// for a deployment whose identity may read a table but may not run a query job,
+// and is offered by every backend that can read a table that way; see
+// BackendCapabilities.table_scan. The reply is the Query reply: a header, then
+// Arrow-IPC record batches.
+type ScanRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// table is the table to read. An empty dataset resolves to the backend
+	// default; a view is refused where the backend cannot read one directly.
+	Table *TableRef `protobuf:"bytes,1,opt,name=table,proto3" json:"table,omitempty"`
+	// selected_fields are the columns to return, in this order. Empty returns
+	// every column in the table's order. A name the table lacks, or one listed
+	// twice, is INVALID_ARGUMENT.
+	SelectedFields []string `protobuf:"bytes,2,rep,name=selected_fields,json=selectedFields,proto3" json:"selected_fields,omitempty"`
+	// filter narrows the rows read. Unset reads every row.
+	Filter        *Filter `protobuf:"bytes,3,opt,name=filter,proto3" json:"filter,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ScanRequest) Reset() {
+	*x = ScanRequest{}
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ScanRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ScanRequest) ProtoMessage() {}
+
+func (x *ScanRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ScanRequest.ProtoReflect.Descriptor instead.
+func (*ScanRequest) Descriptor() ([]byte, []int) {
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ScanRequest) GetTable() *TableRef {
+	if x != nil {
+		return x.Table
+	}
+	return nil
+}
+
+func (x *ScanRequest) GetSelectedFields() []string {
+	if x != nil {
+		return x.SelectedFields
+	}
+	return nil
+}
+
+func (x *ScanRequest) GetFilter() *Filter {
+	if x != nil {
+		return x.Filter
+	}
+	return nil
+}
+
 type GetJobRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -1087,7 +1367,7 @@ type GetJobRequest struct {
 
 func (x *GetJobRequest) Reset() {
 	*x = GetJobRequest{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[8]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1099,7 +1379,7 @@ func (x *GetJobRequest) String() string {
 func (*GetJobRequest) ProtoMessage() {}
 
 func (x *GetJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[8]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1112,7 +1392,7 @@ func (x *GetJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetJobRequest.ProtoReflect.Descriptor instead.
 func (*GetJobRequest) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{8}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetJobRequest) GetId() string {
@@ -1131,7 +1411,7 @@ type CancelJobRequest struct {
 
 func (x *CancelJobRequest) Reset() {
 	*x = CancelJobRequest{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[9]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1143,7 +1423,7 @@ func (x *CancelJobRequest) String() string {
 func (*CancelJobRequest) ProtoMessage() {}
 
 func (x *CancelJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[9]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1156,7 +1436,7 @@ func (x *CancelJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelJobRequest.ProtoReflect.Descriptor instead.
 func (*CancelJobRequest) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{9}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CancelJobRequest) GetId() string {
@@ -1174,7 +1454,7 @@ type CancelJobResult struct {
 
 func (x *CancelJobResult) Reset() {
 	*x = CancelJobResult{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[10]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1186,7 +1466,7 @@ func (x *CancelJobResult) String() string {
 func (*CancelJobResult) ProtoMessage() {}
 
 func (x *CancelJobResult) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[10]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1199,7 +1479,7 @@ func (x *CancelJobResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelJobResult.ProtoReflect.Descriptor instead.
 func (*CancelJobResult) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{10}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{13}
 }
 
 type ListDatasetsRequest struct {
@@ -1212,7 +1492,7 @@ type ListDatasetsRequest struct {
 
 func (x *ListDatasetsRequest) Reset() {
 	*x = ListDatasetsRequest{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[11]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1224,7 +1504,7 @@ func (x *ListDatasetsRequest) String() string {
 func (*ListDatasetsRequest) ProtoMessage() {}
 
 func (x *ListDatasetsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[11]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1237,7 +1517,7 @@ func (x *ListDatasetsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDatasetsRequest.ProtoReflect.Descriptor instead.
 func (*ListDatasetsRequest) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{11}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListDatasetsRequest) GetPageToken() string {
@@ -1266,7 +1546,7 @@ type Dataset struct {
 
 func (x *Dataset) Reset() {
 	*x = Dataset{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[12]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1278,7 +1558,7 @@ func (x *Dataset) String() string {
 func (*Dataset) ProtoMessage() {}
 
 func (x *Dataset) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[12]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1291,7 +1571,7 @@ func (x *Dataset) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Dataset.ProtoReflect.Descriptor instead.
 func (*Dataset) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{12}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *Dataset) GetName() string {
@@ -1332,7 +1612,7 @@ type ListDatasetsResult struct {
 
 func (x *ListDatasetsResult) Reset() {
 	*x = ListDatasetsResult{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[13]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1344,7 +1624,7 @@ func (x *ListDatasetsResult) String() string {
 func (*ListDatasetsResult) ProtoMessage() {}
 
 func (x *ListDatasetsResult) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[13]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1357,7 +1637,7 @@ func (x *ListDatasetsResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDatasetsResult.ProtoReflect.Descriptor instead.
 func (*ListDatasetsResult) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{13}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ListDatasetsResult) GetDatasets() []*Dataset {
@@ -1385,7 +1665,7 @@ type ListTablesRequest struct {
 
 func (x *ListTablesRequest) Reset() {
 	*x = ListTablesRequest{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[14]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1397,7 +1677,7 @@ func (x *ListTablesRequest) String() string {
 func (*ListTablesRequest) ProtoMessage() {}
 
 func (x *ListTablesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[14]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1410,7 +1690,7 @@ func (x *ListTablesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTablesRequest.ProtoReflect.Descriptor instead.
 func (*ListTablesRequest) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{14}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListTablesRequest) GetDataset() string {
@@ -1448,7 +1728,7 @@ type TableInfo struct {
 
 func (x *TableInfo) Reset() {
 	*x = TableInfo{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[15]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1460,7 +1740,7 @@ func (x *TableInfo) String() string {
 func (*TableInfo) ProtoMessage() {}
 
 func (x *TableInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[15]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1473,7 +1753,7 @@ func (x *TableInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TableInfo.ProtoReflect.Descriptor instead.
 func (*TableInfo) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{15}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *TableInfo) GetRef() *TableRef {
@@ -1528,7 +1808,7 @@ type ListTablesResult struct {
 
 func (x *ListTablesResult) Reset() {
 	*x = ListTablesResult{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[16]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1540,7 +1820,7 @@ func (x *ListTablesResult) String() string {
 func (*ListTablesResult) ProtoMessage() {}
 
 func (x *ListTablesResult) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[16]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1553,7 +1833,7 @@ func (x *ListTablesResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTablesResult.ProtoReflect.Descriptor instead.
 func (*ListTablesResult) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{16}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListTablesResult) GetTables() []*TableInfo {
@@ -1579,7 +1859,7 @@ type GetTableRequest struct {
 
 func (x *GetTableRequest) Reset() {
 	*x = GetTableRequest{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[17]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1591,7 +1871,7 @@ func (x *GetTableRequest) String() string {
 func (*GetTableRequest) ProtoMessage() {}
 
 func (x *GetTableRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[17]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1604,7 +1884,7 @@ func (x *GetTableRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTableRequest.ProtoReflect.Descriptor instead.
 func (*GetTableRequest) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{17}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *GetTableRequest) GetRef() *TableRef {
@@ -1630,7 +1910,7 @@ type TableSchema struct {
 
 func (x *TableSchema) Reset() {
 	*x = TableSchema{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[18]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1642,7 +1922,7 @@ func (x *TableSchema) String() string {
 func (*TableSchema) ProtoMessage() {}
 
 func (x *TableSchema) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[18]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1655,7 +1935,7 @@ func (x *TableSchema) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TableSchema.ProtoReflect.Descriptor instead.
 func (*TableSchema) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{18}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *TableSchema) GetInfo() *TableInfo {
@@ -1700,7 +1980,7 @@ type CreateDatasetRequest struct {
 
 func (x *CreateDatasetRequest) Reset() {
 	*x = CreateDatasetRequest{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[19]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1712,7 +1992,7 @@ func (x *CreateDatasetRequest) String() string {
 func (*CreateDatasetRequest) ProtoMessage() {}
 
 func (x *CreateDatasetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[19]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1725,7 +2005,7 @@ func (x *CreateDatasetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateDatasetRequest.ProtoReflect.Descriptor instead.
 func (*CreateDatasetRequest) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{19}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *CreateDatasetRequest) GetName() string {
@@ -1775,7 +2055,7 @@ type DropDatasetRequest struct {
 
 func (x *DropDatasetRequest) Reset() {
 	*x = DropDatasetRequest{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[20]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1787,7 +2067,7 @@ func (x *DropDatasetRequest) String() string {
 func (*DropDatasetRequest) ProtoMessage() {}
 
 func (x *DropDatasetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[20]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1800,7 +2080,7 @@ func (x *DropDatasetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DropDatasetRequest.ProtoReflect.Descriptor instead.
 func (*DropDatasetRequest) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{20}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *DropDatasetRequest) GetName() string {
@@ -1832,7 +2112,7 @@ type DropResult struct {
 
 func (x *DropResult) Reset() {
 	*x = DropResult{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[21]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1844,7 +2124,7 @@ func (x *DropResult) String() string {
 func (*DropResult) ProtoMessage() {}
 
 func (x *DropResult) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[21]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1857,7 +2137,7 @@ func (x *DropResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DropResult.ProtoReflect.Descriptor instead.
 func (*DropResult) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{21}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{24}
 }
 
 type CreateTableRequest struct {
@@ -1876,7 +2156,7 @@ type CreateTableRequest struct {
 
 func (x *CreateTableRequest) Reset() {
 	*x = CreateTableRequest{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[22]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1888,7 +2168,7 @@ func (x *CreateTableRequest) String() string {
 func (*CreateTableRequest) ProtoMessage() {}
 
 func (x *CreateTableRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[22]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1901,7 +2181,7 @@ func (x *CreateTableRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTableRequest.ProtoReflect.Descriptor instead.
 func (*CreateTableRequest) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{22}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *CreateTableRequest) GetRef() *TableRef {
@@ -1956,7 +2236,7 @@ type DropTableRequest struct {
 
 func (x *DropTableRequest) Reset() {
 	*x = DropTableRequest{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[23]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1968,7 +2248,7 @@ func (x *DropTableRequest) String() string {
 func (*DropTableRequest) ProtoMessage() {}
 
 func (x *DropTableRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[23]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1981,7 +2261,7 @@ func (x *DropTableRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DropTableRequest.ProtoReflect.Descriptor instead.
 func (*DropTableRequest) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{23}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *DropTableRequest) GetRef() *TableRef {
@@ -2017,7 +2297,7 @@ type LoadRequest struct {
 
 func (x *LoadRequest) Reset() {
 	*x = LoadRequest{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[24]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2029,7 +2309,7 @@ func (x *LoadRequest) String() string {
 func (*LoadRequest) ProtoMessage() {}
 
 func (x *LoadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[24]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2042,7 +2322,7 @@ func (x *LoadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoadRequest.ProtoReflect.Descriptor instead.
 func (*LoadRequest) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{24}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *LoadRequest) GetDest() *TableRef {
@@ -2106,7 +2386,7 @@ type UnloadRequest struct {
 
 func (x *UnloadRequest) Reset() {
 	*x = UnloadRequest{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[25]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2118,7 +2398,7 @@ func (x *UnloadRequest) String() string {
 func (*UnloadRequest) ProtoMessage() {}
 
 func (x *UnloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[25]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2131,7 +2411,7 @@ func (x *UnloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnloadRequest.ProtoReflect.Descriptor instead.
 func (*UnloadRequest) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{25}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *UnloadRequest) GetSource() isUnloadRequest_Source {
@@ -2212,7 +2492,7 @@ type InsertRowsRequest struct {
 
 func (x *InsertRowsRequest) Reset() {
 	*x = InsertRowsRequest{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[26]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2224,7 +2504,7 @@ func (x *InsertRowsRequest) String() string {
 func (*InsertRowsRequest) ProtoMessage() {}
 
 func (x *InsertRowsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[26]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2237,7 +2517,7 @@ func (x *InsertRowsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InsertRowsRequest.ProtoReflect.Descriptor instead.
 func (*InsertRowsRequest) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{26}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *InsertRowsRequest) GetKind() isInsertRowsRequest_Kind {
@@ -2293,7 +2573,7 @@ type InsertHeader struct {
 
 func (x *InsertHeader) Reset() {
 	*x = InsertHeader{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[27]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2305,7 +2585,7 @@ func (x *InsertHeader) String() string {
 func (*InsertHeader) ProtoMessage() {}
 
 func (x *InsertHeader) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[27]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2318,7 +2598,7 @@ func (x *InsertHeader) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InsertHeader.ProtoReflect.Descriptor instead.
 func (*InsertHeader) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{27}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *InsertHeader) GetTable() *TableRef {
@@ -2345,7 +2625,7 @@ type InsertRowsResult struct {
 
 func (x *InsertRowsResult) Reset() {
 	*x = InsertRowsResult{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[28]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2357,7 +2637,7 @@ func (x *InsertRowsResult) String() string {
 func (*InsertRowsResult) ProtoMessage() {}
 
 func (x *InsertRowsResult) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[28]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2370,7 +2650,7 @@ func (x *InsertRowsResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InsertRowsResult.ProtoReflect.Descriptor instead.
 func (*InsertRowsResult) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{28}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *InsertRowsResult) GetRowsInserted() int64 {
@@ -2403,7 +2683,7 @@ type RowError struct {
 
 func (x *RowError) Reset() {
 	*x = RowError{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[29]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2415,7 +2695,7 @@ func (x *RowError) String() string {
 func (*RowError) ProtoMessage() {}
 
 func (x *RowError) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[29]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2428,7 +2708,7 @@ func (x *RowError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RowError.ProtoReflect.Descriptor instead.
 func (*RowError) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{29}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *RowError) GetRowIndex() int64 {
@@ -2460,7 +2740,7 @@ type CapabilitiesRequest struct {
 
 func (x *CapabilitiesRequest) Reset() {
 	*x = CapabilitiesRequest{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[30]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2472,7 +2752,7 @@ func (x *CapabilitiesRequest) String() string {
 func (*CapabilitiesRequest) ProtoMessage() {}
 
 func (x *CapabilitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[30]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2485,7 +2765,7 @@ func (x *CapabilitiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CapabilitiesRequest.ProtoReflect.Descriptor instead.
 func (*CapabilitiesRequest) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{30}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{33}
 }
 
 // BackendCapabilities is the introspection surface: a client asks what this
@@ -2504,13 +2784,16 @@ type BackendCapabilities struct {
 	MaxQueryBytes   int64                  `protobuf:"varint,10,opt,name=max_query_bytes,json=maxQueryBytes,proto3" json:"max_query_bytes,omitempty"`
 	LoadFormats     []LoadFormat           `protobuf:"varint,11,rep,packed,name=load_formats,json=loadFormats,proto3,enum=codefly.warehouse.v0.LoadFormat" json:"load_formats,omitempty"`
 	NativeVerbs     []string               `protobuf:"bytes,12,rep,name=native_verbs,json=nativeVerbs,proto3" json:"native_verbs,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// table_scan reports that Scan is offered: rows of a table read directly,
+	// with no SQL and no query job. A false flag means Scan is UNIMPLEMENTED.
+	TableScan     bool `protobuf:"varint,13,opt,name=table_scan,json=tableScan,proto3" json:"table_scan,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *BackendCapabilities) Reset() {
 	*x = BackendCapabilities{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[31]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2522,7 +2805,7 @@ func (x *BackendCapabilities) String() string {
 func (*BackendCapabilities) ProtoMessage() {}
 
 func (x *BackendCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[31]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2535,7 +2818,7 @@ func (x *BackendCapabilities) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackendCapabilities.ProtoReflect.Descriptor instead.
 func (*BackendCapabilities) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{31}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *BackendCapabilities) GetBackend() string {
@@ -2622,6 +2905,13 @@ func (x *BackendCapabilities) GetNativeVerbs() []string {
 	return nil
 }
 
+func (x *BackendCapabilities) GetTableScan() bool {
+	if x != nil {
+		return x.TableScan
+	}
+	return false
+}
+
 type NativeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Verb          string                 `protobuf:"bytes,1,opt,name=verb,proto3" json:"verb,omitempty"`
@@ -2632,7 +2922,7 @@ type NativeRequest struct {
 
 func (x *NativeRequest) Reset() {
 	*x = NativeRequest{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[32]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2644,7 +2934,7 @@ func (x *NativeRequest) String() string {
 func (*NativeRequest) ProtoMessage() {}
 
 func (x *NativeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[32]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2657,7 +2947,7 @@ func (x *NativeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NativeRequest.ProtoReflect.Descriptor instead.
 func (*NativeRequest) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{32}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *NativeRequest) GetVerb() string {
@@ -2686,7 +2976,7 @@ type NativeResult struct {
 
 func (x *NativeResult) Reset() {
 	*x = NativeResult{}
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[33]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2698,7 +2988,7 @@ func (x *NativeResult) String() string {
 func (*NativeResult) ProtoMessage() {}
 
 func (x *NativeResult) ProtoReflect() protoreflect.Message {
-	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[33]
+	mi := &file_codefly_warehouse_v0_warehouse_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2711,7 +3001,7 @@ func (x *NativeResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NativeResult.ProtoReflect.Descriptor instead.
 func (*NativeResult) Descriptor() ([]byte, []int) {
-	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{33}
+	return file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *NativeResult) GetValues() map[string]string {
@@ -2778,7 +3068,20 @@ const file_codefly_warehouse_v0_warehouse_proto_rawDesc = "" +
 	"\vQueryHeader\x12+\n" +
 	"\x03job\x18\x01 \x01(\v2\x19.codefly.warehouse.v0.JobR\x03job\x124\n" +
 	"\x06schema\x18\x02 \x03(\v2\x1c.codefly.warehouse.v0.ColumnR\x06schema\x12(\n" +
-	"\x10arrow_ipc_schema\x18\x03 \x01(\fR\x0earrowIpcSchema\"\x1f\n" +
+	"\x10arrow_ipc_schema\x18\x03 \x01(\fR\x0earrowIpcSchema\"\xa2\x01\n" +
+	"\tPredicate\x12\x14\n" +
+	"\x05field\x18\x01 \x01(\tR\x05field\x121\n" +
+	"\x02op\x18\x02 \x01(\x0e2!.codefly.warehouse.v0.PredicateOpR\x02op\x124\n" +
+	"\x04type\x18\x03 \x01(\x0e2 .codefly.warehouse.v0.ColumnTypeR\x04type\x12\x16\n" +
+	"\x06values\x18\x04 \x03(\tR\x06values\"I\n" +
+	"\x06Filter\x12?\n" +
+	"\n" +
+	"predicates\x18\x01 \x03(\v2\x1f.codefly.warehouse.v0.PredicateR\n" +
+	"predicates\"\xa2\x01\n" +
+	"\vScanRequest\x124\n" +
+	"\x05table\x18\x01 \x01(\v2\x1e.codefly.warehouse.v0.TableRefR\x05table\x12'\n" +
+	"\x0fselected_fields\x18\x02 \x03(\tR\x0eselectedFields\x124\n" +
+	"\x06filter\x18\x03 \x01(\v2\x1c.codefly.warehouse.v0.FilterR\x06filter\"\x1f\n" +
 	"\rGetJobRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\"\n" +
 	"\x10CancelJobRequest\x12\x0e\n" +
@@ -2884,7 +3187,7 @@ const file_codefly_warehouse_v0_warehouse_proto_rawDesc = "" +
 	"\trow_index\x18\x01 \x01(\x03R\browIndex\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x128\n" +
 	"\x06reason\x18\x03 \x01(\x0e2 .codefly.warehouse.v0.RowRefusalR\x06reason\"\x15\n" +
-	"\x13CapabilitiesRequest\"\xa5\x03\n" +
+	"\x13CapabilitiesRequest\"\xc4\x03\n" +
 	"\x13BackendCapabilities\x12\x18\n" +
 	"\abackend\x18\x01 \x01(\tR\abackend\x12\x1d\n" +
 	"\n" +
@@ -2901,7 +3204,9 @@ const file_codefly_warehouse_v0_warehouse_proto_rawDesc = "" +
 	"\x0fmax_query_bytes\x18\n" +
 	" \x01(\x03R\rmaxQueryBytes\x12C\n" +
 	"\fload_formats\x18\v \x03(\x0e2 .codefly.warehouse.v0.LoadFormatR\vloadFormats\x12!\n" +
-	"\fnative_verbs\x18\f \x03(\tR\vnativeVerbs\"\xa7\x01\n" +
+	"\fnative_verbs\x18\f \x03(\tR\vnativeVerbs\x12\x1d\n" +
+	"\n" +
+	"table_scan\x18\r \x01(\bR\ttableScan\"\xa7\x01\n" +
 	"\rNativeRequest\x12\x12\n" +
 	"\x04verb\x18\x01 \x01(\tR\x04verb\x12G\n" +
 	"\x06params\x18\x02 \x03(\v2/.codefly.warehouse.v0.NativeRequest.ParamsEntryR\x06params\x1a9\n" +
@@ -2939,7 +3244,17 @@ const file_codefly_warehouse_v0_warehouse_proto_rawDesc = "" +
 	"\x11JOB_STATE_RUNNING\x10\x02\x12\x12\n" +
 	"\x0eJOB_STATE_DONE\x10\x03\x12\x14\n" +
 	"\x10JOB_STATE_FAILED\x10\x04\x12\x17\n" +
-	"\x13JOB_STATE_CANCELLED\x10\x05*\x8d\x01\n" +
+	"\x13JOB_STATE_CANCELLED\x10\x05*\xe1\x01\n" +
+	"\vPredicateOp\x12\x1c\n" +
+	"\x18PREDICATE_OP_UNSPECIFIED\x10\x00\x12\x13\n" +
+	"\x0fPREDICATE_OP_EQ\x10\x01\x12\x13\n" +
+	"\x0fPREDICATE_OP_IN\x10\x02\x12\x13\n" +
+	"\x0fPREDICATE_OP_LT\x10\x03\x12\x13\n" +
+	"\x0fPREDICATE_OP_LE\x10\x04\x12\x13\n" +
+	"\x0fPREDICATE_OP_GT\x10\x05\x12\x13\n" +
+	"\x0fPREDICATE_OP_GE\x10\x06\x12\x18\n" +
+	"\x14PREDICATE_OP_IS_NULL\x10\a\x12\x1c\n" +
+	"\x18PREDICATE_OP_IS_NOT_NULL\x10\b*\x8d\x01\n" +
 	"\tTableKind\x12\x1a\n" +
 	"\x16TABLE_KIND_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10TABLE_KIND_TABLE\x10\x01\x12\x13\n" +
@@ -2964,12 +3279,12 @@ const file_codefly_warehouse_v0_warehouse_proto_rawDesc = "" +
 	"\x17ROW_REFUSAL_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19ROW_REFUSAL_INVALID_VALUE\x10\x01\x12\x1d\n" +
 	"\x19ROW_REFUSAL_ROW_TOO_LARGE\x10\x02\x12\x1f\n" +
-	"\x1bROW_REFUSAL_SCHEMA_MISMATCH\x10\x032\xb3\n" +
-	"\n" +
+	"\x1bROW_REFUSAL_SCHEMA_MISMATCH\x10\x032\x85\v\n" +
 	"\tWarehouse\x12R\n" +
 	"\x05Query\x12\".codefly.warehouse.v0.QueryRequest\x1a#.codefly.warehouse.v0.QueryResponse0\x01\x12H\n" +
 	"\x06GetJob\x12#.codefly.warehouse.v0.GetJobRequest\x1a\x19.codefly.warehouse.v0.Job\x12Z\n" +
-	"\tCancelJob\x12&.codefly.warehouse.v0.CancelJobRequest\x1a%.codefly.warehouse.v0.CancelJobResult\x12c\n" +
+	"\tCancelJob\x12&.codefly.warehouse.v0.CancelJobRequest\x1a%.codefly.warehouse.v0.CancelJobResult\x12P\n" +
+	"\x04Scan\x12!.codefly.warehouse.v0.ScanRequest\x1a#.codefly.warehouse.v0.QueryResponse0\x01\x12c\n" +
 	"\fListDatasets\x12).codefly.warehouse.v0.ListDatasetsRequest\x1a(.codefly.warehouse.v0.ListDatasetsResult\x12]\n" +
 	"\n" +
 	"ListTables\x12'.codefly.warehouse.v0.ListTablesRequest\x1a&.codefly.warehouse.v0.ListTablesResult\x12T\n" +
@@ -2997,128 +3312,139 @@ func file_codefly_warehouse_v0_warehouse_proto_rawDescGZIP() []byte {
 	return file_codefly_warehouse_v0_warehouse_proto_rawDescData
 }
 
-var file_codefly_warehouse_v0_warehouse_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_codefly_warehouse_v0_warehouse_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
+var file_codefly_warehouse_v0_warehouse_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
+var file_codefly_warehouse_v0_warehouse_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
 var file_codefly_warehouse_v0_warehouse_proto_goTypes = []any{
 	(ColumnType)(0),              // 0: codefly.warehouse.v0.ColumnType
 	(JobState)(0),                // 1: codefly.warehouse.v0.JobState
-	(TableKind)(0),               // 2: codefly.warehouse.v0.TableKind
-	(LoadFormat)(0),              // 3: codefly.warehouse.v0.LoadFormat
-	(WriteDisposition)(0),        // 4: codefly.warehouse.v0.WriteDisposition
-	(RowRefusal)(0),              // 5: codefly.warehouse.v0.RowRefusal
-	(*Column)(nil),               // 6: codefly.warehouse.v0.Column
-	(*TableRef)(nil),             // 7: codefly.warehouse.v0.TableRef
-	(*JobStats)(nil),             // 8: codefly.warehouse.v0.JobStats
-	(*Job)(nil),                  // 9: codefly.warehouse.v0.Job
-	(*QueryParam)(nil),           // 10: codefly.warehouse.v0.QueryParam
-	(*QueryRequest)(nil),         // 11: codefly.warehouse.v0.QueryRequest
-	(*QueryResponse)(nil),        // 12: codefly.warehouse.v0.QueryResponse
-	(*QueryHeader)(nil),          // 13: codefly.warehouse.v0.QueryHeader
-	(*GetJobRequest)(nil),        // 14: codefly.warehouse.v0.GetJobRequest
-	(*CancelJobRequest)(nil),     // 15: codefly.warehouse.v0.CancelJobRequest
-	(*CancelJobResult)(nil),      // 16: codefly.warehouse.v0.CancelJobResult
-	(*ListDatasetsRequest)(nil),  // 17: codefly.warehouse.v0.ListDatasetsRequest
-	(*Dataset)(nil),              // 18: codefly.warehouse.v0.Dataset
-	(*ListDatasetsResult)(nil),   // 19: codefly.warehouse.v0.ListDatasetsResult
-	(*ListTablesRequest)(nil),    // 20: codefly.warehouse.v0.ListTablesRequest
-	(*TableInfo)(nil),            // 21: codefly.warehouse.v0.TableInfo
-	(*ListTablesResult)(nil),     // 22: codefly.warehouse.v0.ListTablesResult
-	(*GetTableRequest)(nil),      // 23: codefly.warehouse.v0.GetTableRequest
-	(*TableSchema)(nil),          // 24: codefly.warehouse.v0.TableSchema
-	(*CreateDatasetRequest)(nil), // 25: codefly.warehouse.v0.CreateDatasetRequest
-	(*DropDatasetRequest)(nil),   // 26: codefly.warehouse.v0.DropDatasetRequest
-	(*DropResult)(nil),           // 27: codefly.warehouse.v0.DropResult
-	(*CreateTableRequest)(nil),   // 28: codefly.warehouse.v0.CreateTableRequest
-	(*DropTableRequest)(nil),     // 29: codefly.warehouse.v0.DropTableRequest
-	(*LoadRequest)(nil),          // 30: codefly.warehouse.v0.LoadRequest
-	(*UnloadRequest)(nil),        // 31: codefly.warehouse.v0.UnloadRequest
-	(*InsertRowsRequest)(nil),    // 32: codefly.warehouse.v0.InsertRowsRequest
-	(*InsertHeader)(nil),         // 33: codefly.warehouse.v0.InsertHeader
-	(*InsertRowsResult)(nil),     // 34: codefly.warehouse.v0.InsertRowsResult
-	(*RowError)(nil),             // 35: codefly.warehouse.v0.RowError
-	(*CapabilitiesRequest)(nil),  // 36: codefly.warehouse.v0.CapabilitiesRequest
-	(*BackendCapabilities)(nil),  // 37: codefly.warehouse.v0.BackendCapabilities
-	(*NativeRequest)(nil),        // 38: codefly.warehouse.v0.NativeRequest
-	(*NativeResult)(nil),         // 39: codefly.warehouse.v0.NativeResult
-	nil,                          // 40: codefly.warehouse.v0.Dataset.LabelsEntry
-	nil,                          // 41: codefly.warehouse.v0.CreateDatasetRequest.LabelsEntry
-	nil,                          // 42: codefly.warehouse.v0.LoadRequest.OptionsEntry
-	nil,                          // 43: codefly.warehouse.v0.UnloadRequest.OptionsEntry
-	nil,                          // 44: codefly.warehouse.v0.NativeRequest.ParamsEntry
-	nil,                          // 45: codefly.warehouse.v0.NativeResult.ValuesEntry
+	(PredicateOp)(0),             // 2: codefly.warehouse.v0.PredicateOp
+	(TableKind)(0),               // 3: codefly.warehouse.v0.TableKind
+	(LoadFormat)(0),              // 4: codefly.warehouse.v0.LoadFormat
+	(WriteDisposition)(0),        // 5: codefly.warehouse.v0.WriteDisposition
+	(RowRefusal)(0),              // 6: codefly.warehouse.v0.RowRefusal
+	(*Column)(nil),               // 7: codefly.warehouse.v0.Column
+	(*TableRef)(nil),             // 8: codefly.warehouse.v0.TableRef
+	(*JobStats)(nil),             // 9: codefly.warehouse.v0.JobStats
+	(*Job)(nil),                  // 10: codefly.warehouse.v0.Job
+	(*QueryParam)(nil),           // 11: codefly.warehouse.v0.QueryParam
+	(*QueryRequest)(nil),         // 12: codefly.warehouse.v0.QueryRequest
+	(*QueryResponse)(nil),        // 13: codefly.warehouse.v0.QueryResponse
+	(*QueryHeader)(nil),          // 14: codefly.warehouse.v0.QueryHeader
+	(*Predicate)(nil),            // 15: codefly.warehouse.v0.Predicate
+	(*Filter)(nil),               // 16: codefly.warehouse.v0.Filter
+	(*ScanRequest)(nil),          // 17: codefly.warehouse.v0.ScanRequest
+	(*GetJobRequest)(nil),        // 18: codefly.warehouse.v0.GetJobRequest
+	(*CancelJobRequest)(nil),     // 19: codefly.warehouse.v0.CancelJobRequest
+	(*CancelJobResult)(nil),      // 20: codefly.warehouse.v0.CancelJobResult
+	(*ListDatasetsRequest)(nil),  // 21: codefly.warehouse.v0.ListDatasetsRequest
+	(*Dataset)(nil),              // 22: codefly.warehouse.v0.Dataset
+	(*ListDatasetsResult)(nil),   // 23: codefly.warehouse.v0.ListDatasetsResult
+	(*ListTablesRequest)(nil),    // 24: codefly.warehouse.v0.ListTablesRequest
+	(*TableInfo)(nil),            // 25: codefly.warehouse.v0.TableInfo
+	(*ListTablesResult)(nil),     // 26: codefly.warehouse.v0.ListTablesResult
+	(*GetTableRequest)(nil),      // 27: codefly.warehouse.v0.GetTableRequest
+	(*TableSchema)(nil),          // 28: codefly.warehouse.v0.TableSchema
+	(*CreateDatasetRequest)(nil), // 29: codefly.warehouse.v0.CreateDatasetRequest
+	(*DropDatasetRequest)(nil),   // 30: codefly.warehouse.v0.DropDatasetRequest
+	(*DropResult)(nil),           // 31: codefly.warehouse.v0.DropResult
+	(*CreateTableRequest)(nil),   // 32: codefly.warehouse.v0.CreateTableRequest
+	(*DropTableRequest)(nil),     // 33: codefly.warehouse.v0.DropTableRequest
+	(*LoadRequest)(nil),          // 34: codefly.warehouse.v0.LoadRequest
+	(*UnloadRequest)(nil),        // 35: codefly.warehouse.v0.UnloadRequest
+	(*InsertRowsRequest)(nil),    // 36: codefly.warehouse.v0.InsertRowsRequest
+	(*InsertHeader)(nil),         // 37: codefly.warehouse.v0.InsertHeader
+	(*InsertRowsResult)(nil),     // 38: codefly.warehouse.v0.InsertRowsResult
+	(*RowError)(nil),             // 39: codefly.warehouse.v0.RowError
+	(*CapabilitiesRequest)(nil),  // 40: codefly.warehouse.v0.CapabilitiesRequest
+	(*BackendCapabilities)(nil),  // 41: codefly.warehouse.v0.BackendCapabilities
+	(*NativeRequest)(nil),        // 42: codefly.warehouse.v0.NativeRequest
+	(*NativeResult)(nil),         // 43: codefly.warehouse.v0.NativeResult
+	nil,                          // 44: codefly.warehouse.v0.Dataset.LabelsEntry
+	nil,                          // 45: codefly.warehouse.v0.CreateDatasetRequest.LabelsEntry
+	nil,                          // 46: codefly.warehouse.v0.LoadRequest.OptionsEntry
+	nil,                          // 47: codefly.warehouse.v0.UnloadRequest.OptionsEntry
+	nil,                          // 48: codefly.warehouse.v0.NativeRequest.ParamsEntry
+	nil,                          // 49: codefly.warehouse.v0.NativeResult.ValuesEntry
 }
 var file_codefly_warehouse_v0_warehouse_proto_depIdxs = []int32{
 	0,  // 0: codefly.warehouse.v0.Column.type:type_name -> codefly.warehouse.v0.ColumnType
-	6,  // 1: codefly.warehouse.v0.Column.fields:type_name -> codefly.warehouse.v0.Column
+	7,  // 1: codefly.warehouse.v0.Column.fields:type_name -> codefly.warehouse.v0.Column
 	1,  // 2: codefly.warehouse.v0.Job.state:type_name -> codefly.warehouse.v0.JobState
-	8,  // 3: codefly.warehouse.v0.Job.stats:type_name -> codefly.warehouse.v0.JobStats
+	9,  // 3: codefly.warehouse.v0.Job.stats:type_name -> codefly.warehouse.v0.JobStats
 	0,  // 4: codefly.warehouse.v0.QueryParam.type:type_name -> codefly.warehouse.v0.ColumnType
-	10, // 5: codefly.warehouse.v0.QueryRequest.params:type_name -> codefly.warehouse.v0.QueryParam
-	13, // 6: codefly.warehouse.v0.QueryResponse.header:type_name -> codefly.warehouse.v0.QueryHeader
-	9,  // 7: codefly.warehouse.v0.QueryHeader.job:type_name -> codefly.warehouse.v0.Job
-	6,  // 8: codefly.warehouse.v0.QueryHeader.schema:type_name -> codefly.warehouse.v0.Column
-	40, // 9: codefly.warehouse.v0.Dataset.labels:type_name -> codefly.warehouse.v0.Dataset.LabelsEntry
-	18, // 10: codefly.warehouse.v0.ListDatasetsResult.datasets:type_name -> codefly.warehouse.v0.Dataset
-	7,  // 11: codefly.warehouse.v0.TableInfo.ref:type_name -> codefly.warehouse.v0.TableRef
-	2,  // 12: codefly.warehouse.v0.TableInfo.kind:type_name -> codefly.warehouse.v0.TableKind
-	21, // 13: codefly.warehouse.v0.ListTablesResult.tables:type_name -> codefly.warehouse.v0.TableInfo
-	7,  // 14: codefly.warehouse.v0.GetTableRequest.ref:type_name -> codefly.warehouse.v0.TableRef
-	21, // 15: codefly.warehouse.v0.TableSchema.info:type_name -> codefly.warehouse.v0.TableInfo
-	6,  // 16: codefly.warehouse.v0.TableSchema.columns:type_name -> codefly.warehouse.v0.Column
-	41, // 17: codefly.warehouse.v0.CreateDatasetRequest.labels:type_name -> codefly.warehouse.v0.CreateDatasetRequest.LabelsEntry
-	7,  // 18: codefly.warehouse.v0.CreateTableRequest.ref:type_name -> codefly.warehouse.v0.TableRef
-	6,  // 19: codefly.warehouse.v0.CreateTableRequest.columns:type_name -> codefly.warehouse.v0.Column
-	7,  // 20: codefly.warehouse.v0.DropTableRequest.ref:type_name -> codefly.warehouse.v0.TableRef
-	7,  // 21: codefly.warehouse.v0.LoadRequest.dest:type_name -> codefly.warehouse.v0.TableRef
-	3,  // 22: codefly.warehouse.v0.LoadRequest.format:type_name -> codefly.warehouse.v0.LoadFormat
-	4,  // 23: codefly.warehouse.v0.LoadRequest.write_disposition:type_name -> codefly.warehouse.v0.WriteDisposition
-	6,  // 24: codefly.warehouse.v0.LoadRequest.schema:type_name -> codefly.warehouse.v0.Column
-	42, // 25: codefly.warehouse.v0.LoadRequest.options:type_name -> codefly.warehouse.v0.LoadRequest.OptionsEntry
-	7,  // 26: codefly.warehouse.v0.UnloadRequest.table:type_name -> codefly.warehouse.v0.TableRef
-	3,  // 27: codefly.warehouse.v0.UnloadRequest.format:type_name -> codefly.warehouse.v0.LoadFormat
-	43, // 28: codefly.warehouse.v0.UnloadRequest.options:type_name -> codefly.warehouse.v0.UnloadRequest.OptionsEntry
-	33, // 29: codefly.warehouse.v0.InsertRowsRequest.header:type_name -> codefly.warehouse.v0.InsertHeader
-	7,  // 30: codefly.warehouse.v0.InsertHeader.table:type_name -> codefly.warehouse.v0.TableRef
-	35, // 31: codefly.warehouse.v0.InsertRowsResult.errors:type_name -> codefly.warehouse.v0.RowError
-	5,  // 32: codefly.warehouse.v0.RowError.reason:type_name -> codefly.warehouse.v0.RowRefusal
-	3,  // 33: codefly.warehouse.v0.BackendCapabilities.load_formats:type_name -> codefly.warehouse.v0.LoadFormat
-	44, // 34: codefly.warehouse.v0.NativeRequest.params:type_name -> codefly.warehouse.v0.NativeRequest.ParamsEntry
-	45, // 35: codefly.warehouse.v0.NativeResult.values:type_name -> codefly.warehouse.v0.NativeResult.ValuesEntry
-	11, // 36: codefly.warehouse.v0.Warehouse.Query:input_type -> codefly.warehouse.v0.QueryRequest
-	14, // 37: codefly.warehouse.v0.Warehouse.GetJob:input_type -> codefly.warehouse.v0.GetJobRequest
-	15, // 38: codefly.warehouse.v0.Warehouse.CancelJob:input_type -> codefly.warehouse.v0.CancelJobRequest
-	17, // 39: codefly.warehouse.v0.Warehouse.ListDatasets:input_type -> codefly.warehouse.v0.ListDatasetsRequest
-	20, // 40: codefly.warehouse.v0.Warehouse.ListTables:input_type -> codefly.warehouse.v0.ListTablesRequest
-	23, // 41: codefly.warehouse.v0.Warehouse.GetTable:input_type -> codefly.warehouse.v0.GetTableRequest
-	25, // 42: codefly.warehouse.v0.Warehouse.CreateDataset:input_type -> codefly.warehouse.v0.CreateDatasetRequest
-	26, // 43: codefly.warehouse.v0.Warehouse.DropDataset:input_type -> codefly.warehouse.v0.DropDatasetRequest
-	28, // 44: codefly.warehouse.v0.Warehouse.CreateTable:input_type -> codefly.warehouse.v0.CreateTableRequest
-	29, // 45: codefly.warehouse.v0.Warehouse.DropTable:input_type -> codefly.warehouse.v0.DropTableRequest
-	30, // 46: codefly.warehouse.v0.Warehouse.Load:input_type -> codefly.warehouse.v0.LoadRequest
-	31, // 47: codefly.warehouse.v0.Warehouse.Unload:input_type -> codefly.warehouse.v0.UnloadRequest
-	32, // 48: codefly.warehouse.v0.Warehouse.InsertRows:input_type -> codefly.warehouse.v0.InsertRowsRequest
-	36, // 49: codefly.warehouse.v0.Warehouse.Capabilities:input_type -> codefly.warehouse.v0.CapabilitiesRequest
-	38, // 50: codefly.warehouse.v0.Warehouse.Native:input_type -> codefly.warehouse.v0.NativeRequest
-	12, // 51: codefly.warehouse.v0.Warehouse.Query:output_type -> codefly.warehouse.v0.QueryResponse
-	9,  // 52: codefly.warehouse.v0.Warehouse.GetJob:output_type -> codefly.warehouse.v0.Job
-	16, // 53: codefly.warehouse.v0.Warehouse.CancelJob:output_type -> codefly.warehouse.v0.CancelJobResult
-	19, // 54: codefly.warehouse.v0.Warehouse.ListDatasets:output_type -> codefly.warehouse.v0.ListDatasetsResult
-	22, // 55: codefly.warehouse.v0.Warehouse.ListTables:output_type -> codefly.warehouse.v0.ListTablesResult
-	24, // 56: codefly.warehouse.v0.Warehouse.GetTable:output_type -> codefly.warehouse.v0.TableSchema
-	18, // 57: codefly.warehouse.v0.Warehouse.CreateDataset:output_type -> codefly.warehouse.v0.Dataset
-	27, // 58: codefly.warehouse.v0.Warehouse.DropDataset:output_type -> codefly.warehouse.v0.DropResult
-	24, // 59: codefly.warehouse.v0.Warehouse.CreateTable:output_type -> codefly.warehouse.v0.TableSchema
-	27, // 60: codefly.warehouse.v0.Warehouse.DropTable:output_type -> codefly.warehouse.v0.DropResult
-	9,  // 61: codefly.warehouse.v0.Warehouse.Load:output_type -> codefly.warehouse.v0.Job
-	9,  // 62: codefly.warehouse.v0.Warehouse.Unload:output_type -> codefly.warehouse.v0.Job
-	34, // 63: codefly.warehouse.v0.Warehouse.InsertRows:output_type -> codefly.warehouse.v0.InsertRowsResult
-	37, // 64: codefly.warehouse.v0.Warehouse.Capabilities:output_type -> codefly.warehouse.v0.BackendCapabilities
-	39, // 65: codefly.warehouse.v0.Warehouse.Native:output_type -> codefly.warehouse.v0.NativeResult
-	51, // [51:66] is the sub-list for method output_type
-	36, // [36:51] is the sub-list for method input_type
-	36, // [36:36] is the sub-list for extension type_name
-	36, // [36:36] is the sub-list for extension extendee
-	0,  // [0:36] is the sub-list for field type_name
+	11, // 5: codefly.warehouse.v0.QueryRequest.params:type_name -> codefly.warehouse.v0.QueryParam
+	14, // 6: codefly.warehouse.v0.QueryResponse.header:type_name -> codefly.warehouse.v0.QueryHeader
+	10, // 7: codefly.warehouse.v0.QueryHeader.job:type_name -> codefly.warehouse.v0.Job
+	7,  // 8: codefly.warehouse.v0.QueryHeader.schema:type_name -> codefly.warehouse.v0.Column
+	2,  // 9: codefly.warehouse.v0.Predicate.op:type_name -> codefly.warehouse.v0.PredicateOp
+	0,  // 10: codefly.warehouse.v0.Predicate.type:type_name -> codefly.warehouse.v0.ColumnType
+	15, // 11: codefly.warehouse.v0.Filter.predicates:type_name -> codefly.warehouse.v0.Predicate
+	8,  // 12: codefly.warehouse.v0.ScanRequest.table:type_name -> codefly.warehouse.v0.TableRef
+	16, // 13: codefly.warehouse.v0.ScanRequest.filter:type_name -> codefly.warehouse.v0.Filter
+	44, // 14: codefly.warehouse.v0.Dataset.labels:type_name -> codefly.warehouse.v0.Dataset.LabelsEntry
+	22, // 15: codefly.warehouse.v0.ListDatasetsResult.datasets:type_name -> codefly.warehouse.v0.Dataset
+	8,  // 16: codefly.warehouse.v0.TableInfo.ref:type_name -> codefly.warehouse.v0.TableRef
+	3,  // 17: codefly.warehouse.v0.TableInfo.kind:type_name -> codefly.warehouse.v0.TableKind
+	25, // 18: codefly.warehouse.v0.ListTablesResult.tables:type_name -> codefly.warehouse.v0.TableInfo
+	8,  // 19: codefly.warehouse.v0.GetTableRequest.ref:type_name -> codefly.warehouse.v0.TableRef
+	25, // 20: codefly.warehouse.v0.TableSchema.info:type_name -> codefly.warehouse.v0.TableInfo
+	7,  // 21: codefly.warehouse.v0.TableSchema.columns:type_name -> codefly.warehouse.v0.Column
+	45, // 22: codefly.warehouse.v0.CreateDatasetRequest.labels:type_name -> codefly.warehouse.v0.CreateDatasetRequest.LabelsEntry
+	8,  // 23: codefly.warehouse.v0.CreateTableRequest.ref:type_name -> codefly.warehouse.v0.TableRef
+	7,  // 24: codefly.warehouse.v0.CreateTableRequest.columns:type_name -> codefly.warehouse.v0.Column
+	8,  // 25: codefly.warehouse.v0.DropTableRequest.ref:type_name -> codefly.warehouse.v0.TableRef
+	8,  // 26: codefly.warehouse.v0.LoadRequest.dest:type_name -> codefly.warehouse.v0.TableRef
+	4,  // 27: codefly.warehouse.v0.LoadRequest.format:type_name -> codefly.warehouse.v0.LoadFormat
+	5,  // 28: codefly.warehouse.v0.LoadRequest.write_disposition:type_name -> codefly.warehouse.v0.WriteDisposition
+	7,  // 29: codefly.warehouse.v0.LoadRequest.schema:type_name -> codefly.warehouse.v0.Column
+	46, // 30: codefly.warehouse.v0.LoadRequest.options:type_name -> codefly.warehouse.v0.LoadRequest.OptionsEntry
+	8,  // 31: codefly.warehouse.v0.UnloadRequest.table:type_name -> codefly.warehouse.v0.TableRef
+	4,  // 32: codefly.warehouse.v0.UnloadRequest.format:type_name -> codefly.warehouse.v0.LoadFormat
+	47, // 33: codefly.warehouse.v0.UnloadRequest.options:type_name -> codefly.warehouse.v0.UnloadRequest.OptionsEntry
+	37, // 34: codefly.warehouse.v0.InsertRowsRequest.header:type_name -> codefly.warehouse.v0.InsertHeader
+	8,  // 35: codefly.warehouse.v0.InsertHeader.table:type_name -> codefly.warehouse.v0.TableRef
+	39, // 36: codefly.warehouse.v0.InsertRowsResult.errors:type_name -> codefly.warehouse.v0.RowError
+	6,  // 37: codefly.warehouse.v0.RowError.reason:type_name -> codefly.warehouse.v0.RowRefusal
+	4,  // 38: codefly.warehouse.v0.BackendCapabilities.load_formats:type_name -> codefly.warehouse.v0.LoadFormat
+	48, // 39: codefly.warehouse.v0.NativeRequest.params:type_name -> codefly.warehouse.v0.NativeRequest.ParamsEntry
+	49, // 40: codefly.warehouse.v0.NativeResult.values:type_name -> codefly.warehouse.v0.NativeResult.ValuesEntry
+	12, // 41: codefly.warehouse.v0.Warehouse.Query:input_type -> codefly.warehouse.v0.QueryRequest
+	18, // 42: codefly.warehouse.v0.Warehouse.GetJob:input_type -> codefly.warehouse.v0.GetJobRequest
+	19, // 43: codefly.warehouse.v0.Warehouse.CancelJob:input_type -> codefly.warehouse.v0.CancelJobRequest
+	17, // 44: codefly.warehouse.v0.Warehouse.Scan:input_type -> codefly.warehouse.v0.ScanRequest
+	21, // 45: codefly.warehouse.v0.Warehouse.ListDatasets:input_type -> codefly.warehouse.v0.ListDatasetsRequest
+	24, // 46: codefly.warehouse.v0.Warehouse.ListTables:input_type -> codefly.warehouse.v0.ListTablesRequest
+	27, // 47: codefly.warehouse.v0.Warehouse.GetTable:input_type -> codefly.warehouse.v0.GetTableRequest
+	29, // 48: codefly.warehouse.v0.Warehouse.CreateDataset:input_type -> codefly.warehouse.v0.CreateDatasetRequest
+	30, // 49: codefly.warehouse.v0.Warehouse.DropDataset:input_type -> codefly.warehouse.v0.DropDatasetRequest
+	32, // 50: codefly.warehouse.v0.Warehouse.CreateTable:input_type -> codefly.warehouse.v0.CreateTableRequest
+	33, // 51: codefly.warehouse.v0.Warehouse.DropTable:input_type -> codefly.warehouse.v0.DropTableRequest
+	34, // 52: codefly.warehouse.v0.Warehouse.Load:input_type -> codefly.warehouse.v0.LoadRequest
+	35, // 53: codefly.warehouse.v0.Warehouse.Unload:input_type -> codefly.warehouse.v0.UnloadRequest
+	36, // 54: codefly.warehouse.v0.Warehouse.InsertRows:input_type -> codefly.warehouse.v0.InsertRowsRequest
+	40, // 55: codefly.warehouse.v0.Warehouse.Capabilities:input_type -> codefly.warehouse.v0.CapabilitiesRequest
+	42, // 56: codefly.warehouse.v0.Warehouse.Native:input_type -> codefly.warehouse.v0.NativeRequest
+	13, // 57: codefly.warehouse.v0.Warehouse.Query:output_type -> codefly.warehouse.v0.QueryResponse
+	10, // 58: codefly.warehouse.v0.Warehouse.GetJob:output_type -> codefly.warehouse.v0.Job
+	20, // 59: codefly.warehouse.v0.Warehouse.CancelJob:output_type -> codefly.warehouse.v0.CancelJobResult
+	13, // 60: codefly.warehouse.v0.Warehouse.Scan:output_type -> codefly.warehouse.v0.QueryResponse
+	23, // 61: codefly.warehouse.v0.Warehouse.ListDatasets:output_type -> codefly.warehouse.v0.ListDatasetsResult
+	26, // 62: codefly.warehouse.v0.Warehouse.ListTables:output_type -> codefly.warehouse.v0.ListTablesResult
+	28, // 63: codefly.warehouse.v0.Warehouse.GetTable:output_type -> codefly.warehouse.v0.TableSchema
+	22, // 64: codefly.warehouse.v0.Warehouse.CreateDataset:output_type -> codefly.warehouse.v0.Dataset
+	31, // 65: codefly.warehouse.v0.Warehouse.DropDataset:output_type -> codefly.warehouse.v0.DropResult
+	28, // 66: codefly.warehouse.v0.Warehouse.CreateTable:output_type -> codefly.warehouse.v0.TableSchema
+	31, // 67: codefly.warehouse.v0.Warehouse.DropTable:output_type -> codefly.warehouse.v0.DropResult
+	10, // 68: codefly.warehouse.v0.Warehouse.Load:output_type -> codefly.warehouse.v0.Job
+	10, // 69: codefly.warehouse.v0.Warehouse.Unload:output_type -> codefly.warehouse.v0.Job
+	38, // 70: codefly.warehouse.v0.Warehouse.InsertRows:output_type -> codefly.warehouse.v0.InsertRowsResult
+	41, // 71: codefly.warehouse.v0.Warehouse.Capabilities:output_type -> codefly.warehouse.v0.BackendCapabilities
+	43, // 72: codefly.warehouse.v0.Warehouse.Native:output_type -> codefly.warehouse.v0.NativeResult
+	57, // [57:73] is the sub-list for method output_type
+	41, // [41:57] is the sub-list for method input_type
+	41, // [41:41] is the sub-list for extension type_name
+	41, // [41:41] is the sub-list for extension extendee
+	0,  // [0:41] is the sub-list for field type_name
 }
 
 func init() { file_codefly_warehouse_v0_warehouse_proto_init() }
@@ -3130,11 +3456,11 @@ func file_codefly_warehouse_v0_warehouse_proto_init() {
 		(*QueryResponse_Header)(nil),
 		(*QueryResponse_ArrowBatch)(nil),
 	}
-	file_codefly_warehouse_v0_warehouse_proto_msgTypes[25].OneofWrappers = []any{
+	file_codefly_warehouse_v0_warehouse_proto_msgTypes[28].OneofWrappers = []any{
 		(*UnloadRequest_Table)(nil),
 		(*UnloadRequest_Sql)(nil),
 	}
-	file_codefly_warehouse_v0_warehouse_proto_msgTypes[26].OneofWrappers = []any{
+	file_codefly_warehouse_v0_warehouse_proto_msgTypes[29].OneofWrappers = []any{
 		(*InsertRowsRequest_Header)(nil),
 		(*InsertRowsRequest_ArrowBatch)(nil),
 	}
@@ -3143,8 +3469,8 @@ func file_codefly_warehouse_v0_warehouse_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_codefly_warehouse_v0_warehouse_proto_rawDesc), len(file_codefly_warehouse_v0_warehouse_proto_rawDesc)),
-			NumEnums:      6,
-			NumMessages:   40,
+			NumEnums:      7,
+			NumMessages:   43,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
