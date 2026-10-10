@@ -78,6 +78,7 @@ func TestServerCapabilities(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "mem", caps.GetBackend())
 	require.True(t, caps.GetDdl())
+	require.False(t, caps.GetTableScan(), "mem holds no rows, so it offers no scan")
 }
 
 // refusingBackend is mem with an InsertRows that refuses one row for each

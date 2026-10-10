@@ -175,6 +175,7 @@ func TestCapabilitiesAreHonest(t *testing.T) {
 		Unload:          false,
 		StreamingInsert: true,
 		ArrowResults:    true,
+		TableScan:       true,
 	}, be.Capabilities())
 }
 

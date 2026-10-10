@@ -52,6 +52,16 @@ func FromEnv() (Config, error) {
 	if maxArrowMessageBytes < 1 {
 		return Config{}, fmt.Errorf("SWH_MAX_ARROW_MESSAGE_BYTES: must be positive, got %d", maxArrowMessageBytes)
 	}
+	// 0 is "the backend's own default", as for the two limits below it; a
+	// negative count is not fewer streams, and the Storage Read API caps a
+	// session at 1000, so a larger one could only be refused later.
+	scanStreams, err := envInt("SWH_SCAN_STREAMS", 0)
+	if err != nil {
+		return Config{}, err
+	}
+	if scanStreams < 0 || scanStreams > backend.MaxScanStreams {
+		return Config{}, fmt.Errorf("SWH_SCAN_STREAMS: must be between 0 (the backend default) and %d, got %d", backend.MaxScanStreams, scanStreams)
+	}
 	// A negative limit is not a smaller limit: both fields spend 0 as "use the
 	// backend default", so a negative value would reach the backend as no limit
 	// at all — the opposite of what an operator setting one intends.
@@ -80,6 +90,7 @@ func FromEnv() (Config, error) {
 			QueryTimeout:    queryTimeout,
 
 			MaxArrowMessageBytes: maxArrowMessageBytes,
+			ScanStreams:          int(scanStreams),
 		},
 		AuthToken: strings.TrimSpace(os.Getenv("SWH_AUTH_TOKEN")),
 	}

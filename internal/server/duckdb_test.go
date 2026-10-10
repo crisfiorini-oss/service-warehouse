@@ -62,6 +62,15 @@ func query(t *testing.T, c whv0.WarehouseClient, req *whv0.QueryRequest) (*whv0.
 	t.Helper()
 	stream, err := c.Query(context.Background(), req)
 	require.NoError(t, err)
+	return collect(t, stream)
+}
+
+// collect reads a header and the batches that follow it off a QueryResponse
+// stream, the reply of both Query and Scan.
+func collect(t *testing.T, stream interface {
+	Recv() (*whv0.QueryResponse, error)
+}) (*whv0.QueryHeader, []arrow.RecordBatch, error) {
+	t.Helper()
 	first, err := stream.Recv()
 	if err != nil {
 		return nil, nil, err
@@ -107,6 +116,7 @@ func TestDuckDBCapabilitiesOverTheWire(t *testing.T) {
 	require.True(t, caps.GetParameters())
 	require.True(t, caps.GetStreamingInsert())
 	require.True(t, caps.GetArrowResults())
+	require.True(t, caps.GetTableScan())
 	require.False(t, caps.GetAsyncJobs())
 	require.False(t, caps.GetLoad())
 	require.False(t, caps.GetUnload())

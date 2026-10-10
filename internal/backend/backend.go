@@ -49,6 +49,10 @@ type Config struct {
 	// sends (InsertRows); a larger one is refused as invalid before any of it is
 	// read. 0 means the default of internal/arrowipc, never no bound.
 	MaxArrowMessageBytes int64
+	// ScanStreams is the most parallel streams one Scan reads at once, for a
+	// backend that reads a table in parallel; 0 means the backend default. A
+	// backend that has no streams to parallelize refuses a nonzero value.
+	ScanStreams int
 }
 
 // ColumnType is the portable logical type — the honest intersection across the
@@ -74,6 +78,11 @@ const (
 	TypeStruct
 	TypeGeography
 )
+
+// MaxScanStreams is the most streams a Config.ScanStreams may ask for: the
+// Storage Read API's own ceiling on one read session. It is checked where
+// SWH_SCAN_STREAMS is read and again by the backend that uses it.
+const MaxScanStreams = 1000
 
 // Column describes one field of a table or result set. NativeType is the exact
 // backend spelling; Type is the portable bucket.
@@ -350,6 +359,8 @@ type Capabilities struct {
 	MaxQueryBytes   int64
 	LoadFormats     []LoadFormat
 	NativeVerbs     []string
+	// TableScan reports that Scan is offered.
+	TableScan bool
 }
 
 // Backend is the provider-agnostic warehouse contract. Implementations
@@ -367,6 +378,12 @@ type Backend interface {
 	GetJob(ctx context.Context, id string) (*Job, error)
 	// CancelJob requests cancellation of a running job.
 	CancelJob(ctx context.Context, id string) error
+	// Scan reads the rows of one table that match a structured filter, with no
+	// SQL and no job. The result has the shape of a Query result: Job carries no
+	// ID and, where the backend can estimate it, Stats.BytesScanned before the
+	// first batch. A backend that offers Scan calls ValidateScan on the options;
+	// one that does not returns Unsupported before it looks at them.
+	Scan(ctx context.Context, ref TableRef, opts ScanOptions) (*QueryResult, error)
 
 	// ListDatasets enumerates namespaces in the bound database.
 	ListDatasets(ctx context.Context, opts ListDatasetsOptions) (*ListDatasetsResult, error)

@@ -30,6 +30,28 @@ func (s *Server) Query(req *whv0.QueryRequest, stream whv0.Warehouse_QueryServer
 	if err != nil {
 		return toStatus(err)
 	}
+	return sendResult(stream, res)
+}
+
+// Scan reads the rows of one table that match a structured filter and streams
+// them as Query does: a header, then Arrow batches.
+func (s *Server) Scan(req *whv0.ScanRequest, stream whv0.Warehouse_ScanServer) error {
+	res, err := s.be.Scan(stream.Context(), tableRefIn(req.GetTable()), scanOptsIn(req))
+	if err != nil {
+		return toStatus(err)
+	}
+	return sendResult(stream, res)
+}
+
+// resultStream is the server side of any RPC that replies with a QueryResponse
+// stream.
+type resultStream interface {
+	Send(*whv0.QueryResponse) error
+}
+
+// sendResult streams a backend result: the header, then each Arrow batch. It
+// closes the result's batches.
+func sendResult(stream resultStream, res *backend.QueryResult) error {
 	if res.Batches != nil {
 		defer res.Batches.Close()
 	}

@@ -176,6 +176,34 @@ func queryOptsIn(r *whv0.QueryRequest) backend.QueryOptions {
 	return opts
 }
 
+// --- Scan ---
+
+var protoToPredicateOp = map[whv0.PredicateOp]backend.PredicateOp{
+	whv0.PredicateOp_PREDICATE_OP_EQ:          backend.OpEq,
+	whv0.PredicateOp_PREDICATE_OP_IN:          backend.OpIn,
+	whv0.PredicateOp_PREDICATE_OP_LT:          backend.OpLt,
+	whv0.PredicateOp_PREDICATE_OP_LE:          backend.OpLe,
+	whv0.PredicateOp_PREDICATE_OP_GT:          backend.OpGt,
+	whv0.PredicateOp_PREDICATE_OP_GE:          backend.OpGe,
+	whv0.PredicateOp_PREDICATE_OP_IS_NULL:     backend.OpIsNull,
+	whv0.PredicateOp_PREDICATE_OP_IS_NOT_NULL: backend.OpIsNotNull,
+}
+
+// scanOptsIn maps a ScanRequest. An operator this server does not know, or none,
+// maps to OpInvalid, which ValidateScan refuses; it is never read as equality.
+func scanOptsIn(r *whv0.ScanRequest) backend.ScanOptions {
+	opts := backend.ScanOptions{Selected: r.GetSelectedFields()}
+	for _, p := range r.GetFilter().GetPredicates() {
+		opts.Filter = append(opts.Filter, backend.Predicate{
+			Field:  p.GetField(),
+			Op:     protoToPredicateOp[p.GetOp()],
+			Type:   colTypeIn(p.GetType()),
+			Values: p.GetValues(),
+		})
+	}
+	return opts
+}
+
 // --- TableInfo / TableSchema ---
 
 var tableKindToProto = map[backend.TableKind]whv0.TableKind{
@@ -280,6 +308,7 @@ func capabilitiesOut(c backend.Capabilities) *whv0.BackendCapabilities {
 		ArrowResults:    c.ArrowResults,
 		MaxQueryBytes:   c.MaxQueryBytes,
 		NativeVerbs:     c.NativeVerbs,
+		TableScan:       c.TableScan,
 	}
 	for _, f := range c.LoadFormats {
 		out.LoadFormats = append(out.LoadFormats, loadFormatToProto[f])

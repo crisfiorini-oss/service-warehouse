@@ -71,6 +71,12 @@ func run(t *testing.T, be backend.Backend, sql string, opts ...backend.QueryOpti
 	}
 	res, err := be.Query(context.Background(), sql, o)
 	require.NoError(t, err, sql)
+	return drain(t, res)
+}
+
+// drain reads every batch of res through the wire framing.
+func drain(t *testing.T, res *backend.QueryResult) *result {
+	t.Helper()
 	out := &result{res: res}
 	if res.Batches == nil {
 		return out

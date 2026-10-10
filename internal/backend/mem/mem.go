@@ -66,6 +66,10 @@ func (b *Backend) Query(context.Context, string, backend.QueryOptions) (*backend
 	return nil, serr.New(serr.Unsupported, "Query", "mem backend has no query engine")
 }
 
+func (b *Backend) Scan(context.Context, backend.TableRef, backend.ScanOptions) (*backend.QueryResult, error) {
+	return nil, serr.New(serr.Unsupported, "Scan", "mem backend holds no rows to read")
+}
+
 func (b *Backend) GetJob(context.Context, string) (*backend.Job, error) {
 	return nil, serr.New(serr.NotFound, "GetJob", "mem backend runs no jobs")
 }

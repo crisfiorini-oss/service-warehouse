@@ -48,6 +48,7 @@ func clearEnv(t *testing.T) {
 		"SWH_DSN", "SWH_HOST", "SWH_PORT", "SWH_USER", "SWH_PASSWORD", "SWH_ACCOUNT",
 		"SWH_CREDENTIALS_FILE", "SWH_MAX_QUERY_BYTES", "SWH_QUERY_TIMEOUT", "SWH_MAX_ARROW_MESSAGE_BYTES",
 		"SWH_AUTH_TOKEN", "SWH_ALLOW_ANONYMOUS",
+		"SWH_SCAN_STREAMS",
 	} {
 		t.Setenv(k, "")
 	}
@@ -133,6 +134,9 @@ func TestMalformedLimitsAreRejected(t *testing.T) {
 		// Zero is refused rather than read as "the default": a zero that reached
 		// the Arrow reader would be no bound at all.
 		{"SWH_MAX_ARROW_MESSAGE_BYTES", "0", "must be positive"},
+		{"SWH_SCAN_STREAMS", "four", "not an integer"},
+		{"SWH_SCAN_STREAMS", "-1", "between 0"},
+		{"SWH_SCAN_STREAMS", "1001", "between 0"},
 	} {
 		t.Run(tc.key+"="+tc.value, func(t *testing.T) {
 			clearEnv(t)
@@ -171,6 +175,19 @@ func TestArrowMessageBoundIsConfigurable(t *testing.T) {
 	require.Equal(t, int64(1<<20), cfg.Backend.MaxArrowMessageBytes)
 }
 
+func TestScanStreamsIsConfigurable(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("SWH_SCAN_STREAMS", "8")
+	cfg, err := FromEnv()
+	require.NoError(t, err)
+	require.Equal(t, 8, cfg.Backend.ScanStreams)
+
+	t.Setenv("SWH_SCAN_STREAMS", "1000")
+	cfg, err = FromEnv()
+	require.NoError(t, err)
+	require.Equal(t, backend.MaxScanStreams, cfg.Backend.ScanStreams)
+}
+
 // Unset limits keep meaning "use the backend default"; rejecting malformed
 // values must not make an absent value an error.
 func TestUnsetLimitsFallBackToDefaults(t *testing.T) {
@@ -181,6 +198,7 @@ func TestUnsetLimitsFallBackToDefaults(t *testing.T) {
 	require.Zero(t, cfg.Backend.MaxQueryBytes)
 	require.Zero(t, cfg.Backend.QueryTimeout)
 	require.Zero(t, cfg.Backend.Port)
+	require.Zero(t, cfg.Backend.ScanStreams, "0 is the backend's own default")
 }
 
 // TestFromEnvRefusesAnUnauthenticatedListener is the startup guard: with

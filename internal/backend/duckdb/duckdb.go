@@ -11,6 +11,8 @@
 //     client reads the same Arrow types here as on any other backend;
 //   - catalog and DDL calls map a dataset to a DuckDB schema;
 //   - InsertRows appends Arrow batches and reports a refused row by offset;
+//   - Scan reads a table's rows through a filter of bound parameters, no SQL
+//     from the caller;
 //   - jobs, load, unload, native verbs and byte caps are not offered.
 //
 // The engine is opened locked down: no file or network access from SQL, no
@@ -88,6 +90,12 @@ func Open(ctx context.Context, cfg backend.Config) (backend.Backend, error) {
 		// opposite of that.
 		return nil, serr.New(serr.Unsupported, "duckdb.Open",
 			"duckdb cannot meter bytes scanned, so it cannot enforce SWH_MAX_QUERY_BYTES; leave it unset for this backend")
+	}
+	if cfg.ScanStreams != 0 {
+		// A scan reads one local table on one connection; there are no streams to
+		// parallelize. Ignoring the setting would let an operator believe it applies.
+		return nil, serr.New(serr.Unsupported, "duckdb.Open",
+			"duckdb reads a scan on one connection, so it has no streams to set; leave SWH_SCAN_STREAMS unset for this backend")
 	}
 	dsn, err := engineDSN(cfg)
 	if err != nil {
@@ -186,6 +194,7 @@ func (b *Backend) Capabilities() backend.Capabilities {
 		MaxQueryBytes:   0, // not meterable; see Open
 		LoadFormats:     nil,
 		NativeVerbs:     nil,
+		TableScan:       true,
 	}
 }
 
