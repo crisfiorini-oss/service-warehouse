@@ -9,8 +9,8 @@
 # driver lands and then stop. Both stages name Debian 13 explicitly: the binary
 # links against the build stage's glibc and needs one at least as new in the
 # image it runs in, which "golang:1.27" moving to the next Debian would break.
-FROM golang:1.27.2-trixie@sha256:e58d6f83b3416618d8bcac2b3dde1b7f7e3c4a77d25e88637f8bbae81536c48d AS build
-ENV GOTOOLCHAIN=go1.27.2
+FROM golang:1.27.3-trixie@sha256:1896654cfc5c2b5ad74c07f29cb36f5d2d1cbed42e3054070fbfe444e521e83c AS build
+ENV GOTOOLCHAIN=go1.27.3
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download

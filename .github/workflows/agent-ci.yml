@@ -20,5 +20,5 @@ jobs:
     uses: codefly-dev/core/.github/workflows/agent-ci.yml@5b9dbf5d7f03dd048d7b741dc8b79ab2bc407ab3 # v0.19.4
     with:
       # The CLI release the gate runs with. agent.codefly.yaml selects the
-      # source-packager version (0.0.69); go.mod selects Go 1.27.2.
+      # source-packager version (0.0.69); go.mod selects Go 1.27.3.
       codefly-cli-version: "0.1.185"

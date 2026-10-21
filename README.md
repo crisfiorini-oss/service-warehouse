@@ -399,7 +399,7 @@ seed is `0.0.1`; `codefly publish` increments it, so the **first release is
    generated-service `codefly ci run`. Done for v0.0.2 (run 38167325616); since
    then `agent-ci.yml` runs on every pull request.
 7. Confirm the repository's `GH_PAT` release secret is configured, and retain
-   source packager `codefly.dev/go:0.0.69` and the patched Go 1.27.2 toolchain.
+   source packager `codefly.dev/go:0.0.69` and the patched Go 1.27.3 toolchain.
 8. From clean, synced `main` with Docker available, run `codefly publish`.
    Verify that the tag matches `agent.codefly.yaml`, the locked image's version
    labels match `0.0.2`, image tags resolve to the locked digest, and the workflow
@@ -444,9 +444,9 @@ go test -race ./...      # unit tests: mem, a bufconn server, the agent, and the
 The release-gate regression tests use `git` and `jq` (also present in CI).
 
 The source packager is pinned to `codefly.dev/go:0.0.69`, whose image recipes use
-immutable digests. `go.mod` and CI require Go 1.27.2; the gateway Dockerfile pins
-the Go 1.27.2 image index and sets `GOTOOLCHAIN=go1.27.2`. For local conformance,
-run `GOTOOLCHAIN=go1.27.2 codefly agent ci` with CLI **0.1.185**, as pinned in
+immutable digests. `go.mod` and CI require Go 1.27.3; the gateway Dockerfile pins
+the Go 1.27.3 image index and sets `GOTOOLCHAIN=go1.27.3`. For local conformance,
+run `GOTOOLCHAIN=go1.27.3 codefly agent ci` with CLI **0.1.185**, as pinned in
 `agent-ci.yml`. Before the first image lock, also set
 `SWH_GATEWAY_IMAGE=service-warehouse:e2e` to a locally built image when verifying
 the generated service's test phase. This override is only for runtime and image
